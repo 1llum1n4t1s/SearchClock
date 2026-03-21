@@ -2,6 +2,9 @@
 
 Google検索の期間指定を固定化するChrome拡張機能です。
 
+<img width="1280" height="800" alt="01-feature-overview-1280x800" src="https://github.com/user-attachments/assets/91d61064-b575-466a-ad3d-2c2af5024805" />
+
+
 ## 機能
 
 一度期間を設定すれば、毎回「ツール」から期間を選び直す手間なく、常に新しい情報だけを表示できます。
