@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1280px; height: 800px;
+    background: linear-gradient(135deg, #312E81 0%, #4338CA 40%, #6366F1 100%);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Segoe UI', 'Yu Gothic UI', 'Meiryo', sans-serif;
+    overflow: hidden;
+    position: relative;
+  }
+  .bg-circle {
+    position: absolute; border-radius: 50%; opacity: 0.08;
+    background: white;
+  }
+  .bg-circle.c1 { width: 600px; height: 600px; top: -200px; right: -100px; }
+  .bg-circle.c2 { width: 400px; height: 400px; bottom: -150px; left: -80px; }
+  .container {
+    text-align: center;
+    display: flex; flex-direction: column; align-items: center; gap: 36px;
+    z-index: 1;
+  }
+  .icon-wrap {
+    width: 180px; height: 180px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 40px;
+    display: flex; align-items: center; justify-content: center;
+    backdrop-filter: blur(8px);
+    border: 2px solid rgba(255,255,255,0.2);
+  }
+  .title {
+    font-size: 72px; font-weight: 900; color: white;
+    letter-spacing: 4px;
+    text-shadow: 0 4px 16px rgba(0,0,0,0.2);
+  }
+  .tagline {
+    font-size: 32px; font-weight: 500; color: rgba(255,255,255,0.9);
+    letter-spacing: 1px;
+  }
+  .features {
+    display: flex; gap: 24px;
+  }
+  .feat {
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 50px;
+    padding: 12px 28px;
+    font-size: 18px; font-weight: 600; color: white;
+    backdrop-filter: blur(4px);
+  }
+</style>
+</head>
+<body>
+  <div class="bg-circle c1"></div>
+  <div class="bg-circle c2"></div>
+  <div class="container">
+    <div class="icon-wrap">
+      <svg width="120" height="120" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="64" cy="66" r="38" fill="none" stroke="white" stroke-width="6"/>
+        <line x1="64" y1="66" x2="64" y2="42" stroke="white" stroke-width="6" stroke-linecap="round"/>
+        <line x1="64" y1="66" x2="80" y2="58" stroke="white" stroke-width="4" stroke-linecap="round"/>
+        <circle cx="64" cy="66" r="4" fill="white"/>
+        <g transform="translate(82, 82)">
+          <circle cx="0" cy="0" r="12" fill="none" stroke="#FFF176" stroke-width="4"/>
+          <line x1="8" y1="8" x2="20" y2="20" stroke="#FFF176" stroke-width="5" stroke-linecap="round"/>
+        </g>
+      </svg>
+    </div>
+    <div class="title">SearchClock</div>
+    <div class="tagline">Google検索の期間指定を固定して、常に新しい情報を。</div>
+    <div class="features">
+      <div class="feat">検索結果の上にパネル表示</div>
+      <div class="feat">ワンクリックで期間切替</div>
+      <div class="feat">Google設定と後勝ち連携</div>
+    </div>
+  </div>
+</body>
+</html>

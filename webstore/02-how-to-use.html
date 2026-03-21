@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1280px; height: 800px;
+    background: linear-gradient(160deg, #F5F3FF 0%, #EDE9FE 50%, #DDD6FE 100%);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Segoe UI', 'Yu Gothic UI', 'Meiryo', sans-serif;
+    overflow: hidden;
+  }
+  .container {
+    text-align: center;
+    display: flex; flex-direction: column; align-items: center; gap: 48px;
+  }
+  .heading {
+    font-size: 48px; font-weight: 800; color: #5B21B6;
+  }
+  .steps {
+    display: flex; gap: 48px;
+  }
+  .step {
+    background: rgba(255,255,255,0.85);
+    border-radius: 24px;
+    padding: 40px 36px;
+    width: 320px;
+    box-shadow: 0 8px 32px rgba(91,33,182,0.12);
+    display: flex; flex-direction: column; align-items: center; gap: 20px;
+  }
+  .step-num {
+    width: 56px; height: 56px;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px; font-weight: 800; color: white;
+  }
+  .step-icon { font-size: 64px; }
+  .step-title { font-size: 24px; font-weight: 700; color: #4C1D95; }
+  .step-desc { font-size: 18px; color: #5B21B6; line-height: 1.6; }
+  .note {
+    font-size: 18px;
+    color: #7c3aed;
+    background: rgba(255,255,255,0.6);
+    padding: 14px 32px;
+    border-radius: 12px;
+  }
+</style>
+</head>
+<body>
+  <div class="container">
+    <div class="heading">使い方はかんたん 3ステップ</div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-icon">🔧</div>
+        <div class="step-title">拡張機能を追加</div>
+        <div class="step-desc">Chrome Web Storeから<br>インストール</div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-icon">🕐</div>
+        <div class="step-title">期間を選択</div>
+        <div class="step-desc">検索結果の上に表示される<br>パネルから期間を選ぶだけ</div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-icon">🔍</div>
+        <div class="step-title">自動で絞り込み</div>
+        <div class="step-desc">以降のGoogle検索が<br>選んだ期間で自動絞り込み</div>
+      </div>
+    </div>
+    <div class="note">Google検索の期間設定を手動で変えると、拡張機能は自動でオフに（後勝ち）</div>
+  </div>
+</body>
+</html>

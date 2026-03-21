@@ -1,0 +1,144 @@
+/* SearchClock — ポップアップスタイル */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+  font-size: 13px;
+  color: #1f2937;
+  background: #f0f4ff;
+  min-width: 320px;
+  max-width: 320px;
+}
+
+.sc-container {
+  padding: 0;
+}
+
+/* ヘッダー */
+.sc-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 20px 12px;
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  color: #fff;
+}
+
+.sc-logo {
+  flex-shrink: 0;
+}
+
+.sc-title {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.sc-subtitle {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.8);
+  padding: 0 20px 14px;
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+}
+
+/* メインコンテンツ */
+.sc-body {
+  padding: 16px 16px 12px;
+}
+
+/* セクションラベル */
+.sc-section-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #9ca3af;
+  margin-bottom: 8px;
+}
+
+/* プリセットグリッド */
+.sc-presets {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+
+.sc-preset {
+  cursor: pointer;
+  display: block;
+}
+
+.sc-preset input[type="radio"] {
+  display: none;
+}
+
+.sc-chip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 4px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #4b5563;
+  background: #fff;
+  transition: all 0.18s ease;
+  user-select: none;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.sc-chip:hover {
+  background: #f3f4ff;
+  border-color: #a5b4fc;
+  color: #4338ca;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(79, 70, 229, 0.1);
+}
+
+.sc-preset input[type="radio"]:checked + .sc-chip {
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  border-color: transparent;
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
+}
+
+/* ステータス */
+.sc-status {
+  margin: 12px 16px 14px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #6b7280;
+  background: #fff;
+  border: 1.5px solid #e5e7eb;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.sc-status.sc-active {
+  color: #4338ca;
+  background: linear-gradient(135deg, #eef2ff 0%, #f5f3ff 100%);
+  border-color: #c7d2fe;
+}
+
+.sc-status.sc-active::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #4f46e5;
+  box-shadow: 0 0 6px rgba(79, 70, 229, 0.4);
+  flex-shrink: 0;
+}

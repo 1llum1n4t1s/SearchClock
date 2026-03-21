@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="sc-container">
+    <header class="sc-header">
+      <svg class="sc-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
+      <h1 class="sc-title">SearchClock</h1>
+    </header>
+    <p class="sc-subtitle">Google検索の期間指定を固定</p>
+
+    <div class="sc-body">
+      <div class="sc-section-label">プリセット</div>
+      <div class="sc-presets" id="presets">
+        <label class="sc-preset">
+          <input type="radio" name="qdr" value="" checked>
+          <span class="sc-chip">オフ</span>
+        </label>
+        <label class="sc-preset">
+          <input type="radio" name="qdr" value="h3">
+          <span class="sc-chip">3時間</span>
+        </label>
+        <label class="sc-preset">
+          <input type="radio" name="qdr" value="h12">
+          <span class="sc-chip">12時間</span>
+        </label>
+        <label class="sc-preset">
+          <input type="radio" name="qdr" value="d">
+          <span class="sc-chip">1日</span>
+        </label>
+        <label class="sc-preset">
+          <input type="radio" name="qdr" value="d3">
+          <span class="sc-chip">3日</span>
+        </label>
+        <label class="sc-preset">
+          <input type="radio" name="qdr" value="w">
+          <span class="sc-chip">1週間</span>
+        </label>
+        <label class="sc-preset">
+          <input type="radio" name="qdr" value="m">
+          <span class="sc-chip">1ヶ月</span>
+        </label>
+        <label class="sc-preset">
+          <input type="radio" name="qdr" value="m3">
+          <span class="sc-chip">3ヶ月</span>
+        </label>
+        <label class="sc-preset">
+          <input type="radio" name="qdr" value="m6">
+          <span class="sc-chip">半年</span>
+        </label>
+        <label class="sc-preset">
+          <input type="radio" name="qdr" value="y">
+          <span class="sc-chip">1年</span>
+        </label>
+        <label class="sc-preset">
+          <input type="radio" name="qdr" value="y3">
+          <span class="sc-chip">3年</span>
+        </label>
+      </div>
+
+    </div>
+
+    <div class="sc-status sc-active" id="status">設定なし</div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

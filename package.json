@@ -1,0 +1,24 @@
+{
+  "name": "search-clock",
+  "version": "1.0.0",
+  "type": "commonjs",
+  "description": "Chrome extension to fix Google search time period filters",
+  "scripts": {
+    "generate-icons": "node scripts/generate-icons.js",
+    "generate-screenshots": "node webstore/generate-screenshots.js",
+    "build": "npm run generate-icons && npm run generate-screenshots"
+  },
+  "devDependencies": {
+    "http-server": "^14.1.1",
+    "puppeteer": "^24.37.5",
+    "sharp": "^0.33.0"
+  },
+  "keywords": [
+    "chrome-extension",
+    "google-search",
+    "time-filter",
+    "search-clock"
+  ],
+  "author": "",
+  "license": "MIT"
+}

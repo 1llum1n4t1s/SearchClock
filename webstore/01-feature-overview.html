@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1280px; height: 800px;
+    background: #fff;
+    font-family: 'Segoe UI', 'Yu Gothic UI', 'Meiryo', sans-serif;
+    overflow: hidden;
+  }
+
+  /* Google検索バー風 */
+  .g-header {
+    padding: 20px 30px 0;
+    display: flex;
+    align-items: center;
+    gap: 28px;
+  }
+  .g-logo {
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: -1px;
+  }
+  .g-logo span:nth-child(1) { color: #4285F4; }
+  .g-logo span:nth-child(2) { color: #EA4335; }
+  .g-logo span:nth-child(3) { color: #FBBC05; }
+  .g-logo span:nth-child(4) { color: #4285F4; }
+  .g-logo span:nth-child(5) { color: #34A853; }
+  .g-logo span:nth-child(6) { color: #EA4335; }
+  .g-searchbar {
+    flex: 1;
+    max-width: 680px;
+    height: 46px;
+    border: 1px solid #dfe1e5;
+    border-radius: 24px;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    font-size: 16px;
+    color: #202124;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+
+  /* ナビタブ風 */
+  .g-nav {
+    padding: 10px 30px 0 100px;
+    border-bottom: 1px solid #ebebeb;
+    display: flex;
+    gap: 20px;
+  }
+  .g-nav span {
+    font-size: 13px;
+    color: #5f6368;
+    padding-bottom: 12px;
+  }
+  .g-nav span.active {
+    color: #1a73e8;
+    border-bottom: 3px solid #1a73e8;
+    font-weight: 500;
+  }
+
+  /* メインコンテンツ */
+  .g-main {
+    padding: 16px 30px 0 100px;
+    display: flex;
+    gap: 40px;
+  }
+  .g-results {
+    flex: 1;
+    max-width: 650px;
+  }
+
+  /* SearchClockパネル（実際のデザイン再現） */
+  .sc-panel {
+    background: linear-gradient(135deg, #f0f4ff 0%, #faf0ff 100%);
+    border: 1px solid #d4d0f0;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+  .sc-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 14px;
+    background: linear-gradient(135deg, rgba(102,126,234,0.13) 0%, rgba(118,75,162,0.13) 100%);
+    border-bottom: 1px solid #d4d0f0;
+  }
+  .sc-header svg {
+    width: 14px; height: 14px;
+    stroke: #5b5fc7; fill: none;
+    stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+  }
+  .sc-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #4a4a6a;
+    flex: 1;
+  }
+  .sc-status {
+    font-size: 10px;
+    color: #7c6faa;
+    padding: 2px 6px;
+    border-radius: 10px;
+    background: rgba(123, 97, 255, 0.08);
+  }
+  .sc-body {
+    padding: 10px 14px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .sc-chip {
+    padding: 6px 12px;
+    border: 1px solid #c8c4e8;
+    border-radius: 16px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #4a4a6a;
+    background: rgba(255, 255, 255, 0.8);
+  }
+  .sc-chip.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-color: transparent;
+    color: #fff;
+    font-weight: 600;
+    box-shadow: 0 1px 4px rgba(102, 126, 234, 0.3);
+  }
+
+  /* 検索結果モック */
+  .result { margin-bottom: 24px; }
+  .result .url { font-size: 12px; color: #202124; margin-bottom: 2px; }
+  .result .url span { color: #5f6368; }
+  .result h3 { font-size: 20px; color: #1a0dab; font-weight: 400; margin-bottom: 4px; cursor: pointer; }
+  .result h3:hover { text-decoration: underline; }
+  .result p { font-size: 14px; color: #4d5156; line-height: 1.5; }
+  .result .date { color: #70757a; }
+
+  /* 右サイドの注釈 */
+  .g-side {
+    width: 340px;
+    flex-shrink: 0;
+  }
+  .callout {
+    background: linear-gradient(135deg, #f0f4ff 0%, #faf0ff 100%);
+    border: 2px solid #667eea;
+    border-radius: 16px;
+    padding: 24px;
+    text-align: center;
+  }
+  .callout-icon { font-size: 48px; margin-bottom: 12px; }
+  .callout-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: #4338CA;
+    margin-bottom: 8px;
+  }
+  .callout-desc {
+    font-size: 14px;
+    color: #4a4a6a;
+    line-height: 1.6;
+  }
+  .callout-badge {
+    display: inline-block;
+    margin-top: 12px;
+    padding: 6px 16px;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: #fff;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+  <!-- Google検索バー -->
+  <div class="g-header">
+    <div class="g-logo"><span>G</span><span>o</span><span>o</span><span>g</span><span>l</span><span>e</span></div>
+    <div class="g-searchbar">Chrome拡張機能 おすすめ 2026</div>
+  </div>
+
+  <!-- ナビタブ -->
+  <div class="g-nav">
+    <span class="active">すべて</span>
+    <span>画像</span>
+    <span>動画</span>
+    <span>ショッピング</span>
+    <span>ニュース</span>
+    <span>もっと見る</span>
+    <span>ツール</span>
+  </div>
+
+  <div class="g-main">
+    <div class="g-results">
+      <!-- SearchClockパネル -->
+      <div class="sc-panel">
+        <div class="sc-header">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
+          <span class="sc-title">SearchClock</span>
+          <span class="sc-status">1年以内</span>
+        </div>
+        <div class="sc-body">
+          <span class="sc-chip">オフ</span>
+          <span class="sc-chip">3時間</span>
+          <span class="sc-chip">12時間</span>
+          <span class="sc-chip">1日</span>
+          <span class="sc-chip">3日</span>
+          <span class="sc-chip">1週間</span>
+          <span class="sc-chip">1ヶ月</span>
+          <span class="sc-chip">3ヶ月</span>
+          <span class="sc-chip">半年</span>
+          <span class="sc-chip active">1年</span>
+          <span class="sc-chip">3年</span>
+        </div>
+      </div>
+
+      <!-- 検索結果モック -->
+      <div class="result">
+        <div class="url">https://example.com/extensions <span>› best-2026</span></div>
+        <h3>【2026年最新】おすすめChrome拡張機能 厳選まとめ</h3>
+        <p><span class="date">3日前</span> — 生産性を向上させるChrome拡張機能を厳選。SearchClockやTab Manager、Dark Readerなど、最新のおすすめを紹介...</p>
+      </div>
+      <div class="result">
+        <div class="url">https://example.com/tech <span>› chrome-tools</span></div>
+        <h3>Chrome拡張機能の選び方ガイド — 安全で便利なツール集</h3>
+        <p><span class="date">1週間前</span> — 拡張機能を選ぶ際のポイントと、カテゴリ別のおすすめを解説。検索効率化、セキュリティ、開発者向けなど...</p>
+      </div>
+      <div class="result">
+        <div class="url">https://example.com/review <span>› productivity</span></div>
+        <h3>仕事効率化に役立つブラウザ拡張機能ランキング</h3>
+        <p><span class="date">2週間前</span> — リモートワーク時代に欠かせないブラウザ拡張機能をランキング形式で紹介。タスク管理から検索効率化まで...</p>
+      </div>
+    </div>
+
+    <!-- 右サイド注釈 -->
+    <div class="g-side">
+      <div class="callout">
+        <div class="callout-icon">🕐</div>
+        <div class="callout-title">SearchClock</div>
+        <div class="callout-desc">
+          検索結果の上にパネルが表示され<br>
+          ワンクリックで期間を切り替え<br>
+          常に新しい情報だけを表示
+        </div>
+        <div class="callout-badge">Chrome拡張機能 ・ 無料</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

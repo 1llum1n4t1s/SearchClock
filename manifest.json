@@ -1,0 +1,59 @@
+{
+  "manifest_version": 3,
+  "name": "SearchClock",
+  "description": "Google検索の期間指定を固定化。検索結果を常に指定期間内に絞り込みます。",
+  "version": "1.0.0",
+  "action": {
+    "default_icon": {
+      "16": "images/icon-16.png",
+      "48": "images/icon-48.png",
+      "128": "images/icon-128.png"
+    },
+    "default_popup": "popup/popup.html",
+    "default_title": "SearchClock"
+  },
+  "icons": {
+    "16": "images/icon-16.png",
+    "48": "images/icon-48.png",
+    "128": "images/icon-128.png"
+  },
+  "background": {
+    "service_worker": "scripts/background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://www.google.com/search*",
+        "*://www.google.co.jp/search*",
+        "*://www.google.co.uk/search*",
+        "*://www.google.ca/search*",
+        "*://www.google.com.au/search*",
+        "*://www.google.de/search*",
+        "*://www.google.fr/search*",
+        "*://www.google.es/search*",
+        "*://www.google.it/search*",
+        "*://www.google.co.kr/search*",
+        "*://www.google.com.br/search*"
+      ],
+      "js": ["scripts/content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "permissions": [
+    "declarativeNetRequest",
+    "storage"
+  ],
+  "host_permissions": [
+    "*://www.google.com/*",
+    "*://www.google.co.jp/*",
+    "*://www.google.co.uk/*",
+    "*://www.google.ca/*",
+    "*://www.google.com.au/*",
+    "*://www.google.de/*",
+    "*://www.google.fr/*",
+    "*://www.google.es/*",
+    "*://www.google.it/*",
+    "*://www.google.co.kr/*",
+    "*://www.google.com.br/*"
+  ]
+}
