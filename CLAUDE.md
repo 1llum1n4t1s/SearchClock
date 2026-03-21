@@ -27,26 +27,34 @@ manifest.json, scripts/, popup/, images/ をZIPに含める。node_modules や w
 ## アーキテクチャ
 
 - **manifest.json** — MV3拡張機能定義。権限は `declarativeNetRequest` + `storage`。ポップアップ付き。
-- **scripts/background.js** — サービスワーカー。`declarativeNetRequest`の動的ルールを管理。設定変更時にルールを更新。
-  - ルール1（allow, 優先度高）: 既にqdr:パラメータがある場合はスルー（手動設定を尊重）
-  - ルール2（redirect, 優先度低）: Google検索URLに`tbs=qdr:VALUE`を付与
-- **scripts/content.js** — Google検索ページにインライン設定パネルを注入（Shadow DOM使用）。右上のフローティングボタンで開閉。
+- **scripts/background.js** — サービスワーカー。`declarativeNetRequest`の動的ルールを管理。設定変更時にルールを更新。拡張機能の設定を常に優先（既存のtbsパラメータも上書き）。
+- **scripts/content.js** — Google検索ページの`#center_col`先頭にインライン設定パネルを注入（Shadow DOM使用）。プリセット選択で即再検索。Google検索ツールの期間変更を検出して拡張機能をオフにする（後勝ち連携）。ライト/ダークテーマを自動検出して対応。
 - **popup/popup.html** — 拡張機能アイコンクリック時の設定ポップアップ。
-- **popup/popup.js** — プリセット選択・カスタム入力のロジック。`chrome.storage.sync`で設定保存。
-- **popup/popup.css** — ポップアップのスタイル。
+- **popup/popup.js** — プリセット選択のロジック。`chrome.storage.sync`で設定保存。
+- **popup/popup.css** — ポップアップのスタイル（紫グラデーション系）。
 - **icons/icon.svg** — マスターアイコン（時計+虫眼鏡）。`generate-icons.js`で全サイズ生成。
-- **webstore/*.html** — ストア掲載画像のHTMLテンプレート。
+- **webstore/*.html** — ストア掲載画像のHTMLテンプレート。`generate-screenshots.js`（Puppeteer）でPNGに変換。
+- **webstore/store-listing.txt** — Chrome Web Store申請用のコピペ用テキスト。
+
+## プリセット一覧
+
+オフ / 3時間 / 12時間 / 1日 / 3日 / 1週間 / 1ヶ月 / 3ヶ月 / 半年 / 1年 / 3年
 
 ## 期間指定の仕組み
 
 Googleの`tbs`クエリパラメータで期間を制御:
-- `qdr:h` = 1時間以内, `qdr:d` = 24時間以内, `qdr:w` = 1週間以内
-- `qdr:m` = 1ヶ月以内, `qdr:m3` = 3ヶ月以内, `qdr:m6` = 半年以内
-- `qdr:y` = 1年以内, `qdr:y2` = 2年以内, `qdr:y5` = 5年以内
-- カスタム: `qdr:UNIT+NUMBER`（例: `qdr:h12` = 12時間以内）
+- `qdr:h3` = 3時間以内, `qdr:h12` = 12時間以内, `qdr:d` = 1日以内
+- `qdr:d3` = 3日以内, `qdr:w` = 1週間以内, `qdr:m` = 1ヶ月以内
+- `qdr:m3` = 3ヶ月以内, `qdr:m6` = 半年以内, `qdr:y` = 1年以内
+- `qdr:y3` = 3年以内
+
+## 後勝ち連携
+
+- **拡張機能で期間変更** → URLからtbsパラメータを除去して再ナビゲーション → declarativeNetRequestが新しいtbsを付与
+- **Google検索ツールで期間変更** → content.jsがクリックを検出 → chrome.storageでqdrを空に → declarativeNetRequestルール削除 → Googleの設定で再ナビゲーション
 
 ## 制約事項
 
 - `declarativeNetRequest`のリダイレクトには`host_permissions`が必要
 - 対応ドメイン: google.com, google.co.jp, google.co.uk, google.ca, google.com.au, google.de, google.fr, google.es, google.it, google.co.kr, google.com.br
-- 既にqdr:パラメータがあるURLは書き換えない（ユーザーの手動指定を優先）
+- テーマ検出はbodyの背景色RGB値で判定（brightness < 128でダーク）
