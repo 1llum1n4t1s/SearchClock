@@ -1,7 +1,6 @@
 // SearchClock — Google検索の期間指定を固定化するサービスワーカー
 // declarativeNetRequestを使って検索前にURLを書き換える
 
-// 対応するGoogleドメイン一覧
 const GOOGLE_DOMAINS = [
   'www.google.com',
   'www.google.co.jp',
@@ -17,22 +16,29 @@ const GOOGLE_DOMAINS = [
 ];
 
 const REDIRECT_RULE_ID = 1;
+const SKIP_RULE_ID = 2;
 
-// 設定に基づいてdeclarativeNetRequestルールを更新
 async function updateRules(qdr) {
-  // 既存ルールを削除
   await chrome.declarativeNetRequest.updateDynamicRules({
-    removeRuleIds: [REDIRECT_RULE_ID],
+    removeRuleIds: [REDIRECT_RULE_ID, SKIP_RULE_ID],
   });
 
-  // オフの場合はルール追加しない
-  if (!qdr) {
-    return;
-  }
+  if (!qdr) return;
 
-  // 期間指定パラメータを常に上書き（拡張機能の設定を優先）
   await chrome.declarativeNetRequest.updateDynamicRules({
     addRules: [
+      // 既にtbsパラメータがあるURLはスキップ（content.jsが直接設定した値を尊重）
+      {
+        id: SKIP_RULE_ID,
+        priority: 2,
+        action: { type: 'allow' },
+        condition: {
+          regexFilter: '.*[?&]tbs=.*',
+          requestDomains: GOOGLE_DOMAINS,
+          resourceTypes: ['main_frame'],
+        },
+      },
+      // tbsがないURLに期間指定パラメータを追加
       {
         id: REDIRECT_RULE_ID,
         priority: 1,
@@ -58,19 +64,15 @@ async function updateRules(qdr) {
   });
 }
 
-// 拡張機能インストール/更新時
-chrome.runtime.onInstalled.addListener(async () => {
+// 初期化（インストール/更新/ブラウザ起動の共通処理）
+async function initRules() {
   const { qdr } = await chrome.storage.sync.get({ qdr: '' });
   await updateRules(qdr);
-});
+}
 
-// ブラウザ起動時
-chrome.runtime.onStartup.addListener(async () => {
-  const { qdr } = await chrome.storage.sync.get({ qdr: '' });
-  await updateRules(qdr);
-});
+chrome.runtime.onInstalled.addListener(initRules);
+chrome.runtime.onStartup.addListener(initRules);
 
-// 設定変更を監視（ポップアップやコンテンツスクリプトからの変更）
 chrome.storage.onChanged.addListener(async (changes, area) => {
   if (area === 'sync' && changes.qdr) {
     await updateRules(changes.qdr.newValue);

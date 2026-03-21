@@ -1,6 +1,6 @@
 {
   "name": "search-clock",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "type": "commonjs",
   "description": "Chrome extension to fix Google search time period filters",
   "scripts": {
