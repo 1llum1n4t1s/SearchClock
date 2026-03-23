@@ -58,18 +58,20 @@ function initSearchClock() {
     updateUI(shadow, qdr);
   });
 
-  // プリセット選択 → URLに直接tbs値を設定して即ナビゲーション
+  // プリセット選択 → background.jsのルール更新完了を待ってからナビゲーション
   for (const radio of shadow.querySelectorAll('input[name="qdr"]')) {
     radio.addEventListener('change', () => {
       const qdr = radio.value;
+      // URLSearchParamsはコロンを%3Aにエンコードしてしまうため手動でtbsを構築
       const url = new URL(window.location.href);
+      url.searchParams.delete('tbs');
+      let dest = url.toString();
       if (qdr) {
-        url.searchParams.set('tbs', `qdr:${qdr}`);
-      } else {
-        url.searchParams.delete('tbs');
+        dest += (dest.includes('?') ? '&' : '?') + `tbs=qdr:${qdr}`;
       }
-      chrome.storage.sync.set({ qdr });
-      window.location.href = url.toString();
+      chrome.runtime.sendMessage({ type: 'updateQdr', qdr }, () => {
+        window.location.href = dest;
+      });
     });
   }
 
@@ -98,13 +100,28 @@ function initSearchClock() {
     if (!link || !link.href) return;
 
     try {
-      const url = new URL(link.href);
-      if (url.hostname !== window.location.hostname) return;
-      if (!url.pathname.includes('/search')) return;
-      if (url.searchParams.get('tbs') === null) return;
+      const linkUrl = new URL(link.href);
+      if (linkUrl.hostname !== window.location.hostname) return;
+      if (!linkUrl.pathname.includes('/search')) return;
+
+      const currentUrl = new URL(window.location.href);
+      const linkTbs = linkUrl.searchParams.get('tbs');
+      const currentTbs = currentUrl.searchParams.get('tbs');
+
+      // tbs変更なし → 対象外
+      if (linkTbs === currentTbs) return;
+
+      if (linkTbs === null) {
+        // tbsなしリンク（「期間指定なし」）→ 現在tbsがある場合のみ対象
+        if (!currentTbs) return;
+        // 検索結果内のリンクは対象外
+        if (link.closest('#rso')) return;
+        // 検索タイプ切替（画像/ニュース等）は対象外
+        if (linkUrl.searchParams.get('tbm') !== currentUrl.searchParams.get('tbm')) return;
+      }
 
       e.preventDefault();
-      chrome.storage.sync.set({ qdr: '' }, () => {
+      chrome.runtime.sendMessage({ type: 'updateQdr', qdr: '' }, () => {
         window.location.href = link.href;
       });
     } catch (err) {

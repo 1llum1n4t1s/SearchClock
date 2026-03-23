@@ -78,3 +78,19 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
     await updateRules(changes.qdr.newValue);
   }
 });
+
+// content.jsからのメッセージでルール更新 → 完了後に応答（ナビゲーション前にルール確定）
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (msg.type === 'updateQdr') {
+    (async () => {
+      try {
+        await chrome.storage.sync.set({ qdr: msg.qdr });
+        await updateRules(msg.qdr);
+      } catch (err) {
+        console.warn('[SearchClock] ルール更新エラー:', err);
+      }
+      sendResponse({ done: true });
+    })();
+    return true; // 非同期レスポンス
+  }
+});
