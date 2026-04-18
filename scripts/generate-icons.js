@@ -16,18 +16,14 @@ async function generateIcons() {
 
   fs.mkdirSync(iconsDir, { recursive: true });
 
+  // 1つでも失敗したら reject させて、呼び出し元で exit 1 にする
   await Promise.all(sizes.map(async (size) => {
     const outputPath = path.join(iconsDir, `icon-${size}.png`);
-    try {
-      await sharp(svgPath)
-        .resize(size, size)
-        .png()
-        .toFile(outputPath);
-
-      console.log(`✅ ${size}x${size} アイコンを生成しました: ${path.basename(outputPath)}`);
-    } catch (error) {
-      console.error(`❌ ${size}x${size} アイコンの生成に失敗しました:`, error.message);
-    }
+    await sharp(svgPath)
+      .resize(size, size)
+      .png()
+      .toFile(outputPath);
+    console.log(`✅ ${size}x${size} アイコンを生成しました: ${path.basename(outputPath)}`);
   }));
 
   console.log('\n🎉 アイコン生成が完了しました！');

@@ -41,7 +41,7 @@ jobs:
           node-version: '20'
 
       - name: 依存インストール
-        run: npm ci || npm install
+        run: npm ci
 
       - name: アイコン生成
         run: node scripts/generate-icons.js

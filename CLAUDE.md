@@ -22,19 +22,22 @@ npm run build              # 上記2つを順次実行
 ```powershell
 powershell -ExecutionPolicy Bypass -File zip.ps1
 ```
-manifest.json, scripts/, popup/, images/ をZIPに含める。node_modules や webstore/ は含まない。
+manifest.json, src/, icons/ をZIPに含める。node_modules や webstore/ は含まない。
 
 ## アーキテクチャ
 
 - **manifest.json** — MV3拡張機能定義。権限は `declarativeNetRequest` + `storage`。ポップアップ付き。
-- **scripts/background.js** — サービスワーカー。`declarativeNetRequest`の動的ルールを管理。設定変更時にルールを更新。拡張機能の設定を常に優先（既存のtbsパラメータも上書き）。
-- **scripts/content.js** — Google検索ページの`#center_col`先頭にインライン設定パネルを注入（Shadow DOM使用）。プリセット選択で即再検索。Google検索ツールの期間変更を検出して拡張機能をオフにする（後勝ち連携）。ライト/ダークテーマを自動検出して対応。
-- **popup/popup.html** — 拡張機能アイコンクリック時の設定ポップアップ。
-- **popup/popup.js** — プリセット選択のロジック。`chrome.storage.sync`で設定保存。
-- **popup/popup.css** — ポップアップのスタイル（紫グラデーション系）。
-- **icons/icon.svg** — マスターアイコン（時計+虫眼鏡）。`generate-icons.js`で全サイズ生成。
-- **webstore/*.html** — ストア掲載画像のHTMLテンプレート。`generate-screenshots.js`（Puppeteer）でPNGに変換。
+- **src/shared/presets.js** — プリセット定義の単一ソース。`PRESETS` / `QDR_LABELS` / `VALID_QDR_VALUES` を公開。background / content / popup すべてから共有される。
+- **src/background/background.js** — サービスワーカー。`declarativeNetRequest`の動的ルールを管理。remove+add を単一 `updateDynamicRules` で実行（ルール空白期間なし）。`onMessage` で sender.id 検証 + qdr ホワイトリスト検証を行い、`storage.onChanged` との二重起動を抑制。
+- **src/content/content.js** — Google検索ページの`#center_col`先頭にインライン設定パネルを注入（Shadow DOM使用、DOM API で組み立て）。プリセット選択で即再検索。Google検索ツールの期間変更を検出して拡張機能をオフにする（後勝ち連携）。ライト/ダークテーマを自動検出。MutationObserver は `centerCol` 限定で監視、クリーンアップ時に click リスナーも解除。
+- **src/popup/popup.html** — 拡張機能アイコンクリック時の設定ポップアップ（プリセットのラジオは popup.js が動的生成）。
+- **src/popup/popup.js** — プリセット選択のロジック。`chrome.storage.sync`で設定保存。`PRESETS` を動的にラジオ化。
+- **src/popup/popup.css** — ポップアップのスタイル（紫グラデーション系）。
+- **icons/icon.svg** — マスターアイコン（時計+虫眼鏡）。`scripts/generate-icons.js`で全サイズ生成。
+- **scripts/generate-icons.js** — sharp で SVG → PNG 変換。1つでも失敗すれば exit 1。
+- **webstore/*.html** — ストア掲載画像のHTMLテンプレート。`webstore/generate-screenshots.js`（Puppeteer）でPNGに変換。
 - **webstore/store-listing.txt** — Chrome Web Store申請用のコピペ用テキスト。
+- **.github/workflows/publish.yml** — `release/**` ブランチ push で Chrome Web Store に自動公開。
 
 ## プリセット一覧
 

@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "SearchClock",
   "description": "Google検索の期間指定を固定化。検索結果を常に指定期間内に絞り込みます。",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "action": {
     "default_icon": {
       "16": "icons/icon-16.png",
@@ -35,7 +35,7 @@
         "*://www.google.co.kr/search*",
         "*://www.google.com.br/search*"
       ],
-      "js": ["src/content/content.js"],
+      "js": ["src/shared/presets.js", "src/content/content.js"],
       "run_at": "document_idle"
     }
   ],

@@ -1,25 +1,6 @@
 // SearchClock — Google検索ページに設定パネルを埋め込み
 // Shadow DOMでスタイルを完全に分離、Googleのライト/ダークテーマに自動対応
-
-// プリセット定義（HTML生成・ラベル変換の共通データ）
-const PRESETS = [
-  { label: 'オフ', shortLabel: 'オフ', value: '' },
-  { label: '3時間以内', shortLabel: '3時間', value: 'h3' },
-  { label: '12時間以内', shortLabel: '12時間', value: 'h12' },
-  { label: '1日以内', shortLabel: '1日', value: 'd' },
-  { label: '3日以内', shortLabel: '3日', value: 'd3' },
-  { label: '1週間以内', shortLabel: '1週間', value: 'w' },
-  { label: '1ヶ月以内', shortLabel: '1ヶ月', value: 'm' },
-  { label: '3ヶ月以内', shortLabel: '3ヶ月', value: 'm3' },
-  { label: '半年以内', shortLabel: '半年', value: 'm6' },
-  { label: '1年以内', shortLabel: '1年', value: 'y' },
-  { label: '3年以内', shortLabel: '3年', value: 'y3' },
-];
-
-// qdr値 → ラベルのマップ（PRESETSから自動生成）
-const QDR_LABELS = Object.fromEntries(
-  PRESETS.filter(p => p.value).map(p => [p.value, p.label])
-);
+// PRESETS / QDR_LABELS は src/shared/presets.js から注入される（同一 content_scripts 内で共有）
 
 // DOM上の既存要素で多重注入を防止（content scriptのletフラグはナビゲーションでリセットされるため不可）
 if (!document.getElementById('searchclock-root')) {
@@ -41,6 +22,9 @@ function initSearchClock() {
   const centerCol = document.getElementById('center_col');
   if (!centerCol) return;
 
+  // 現在URLはナビゲーションで content script ごと作り直されるので一度だけパース
+  const cachedCurrentUrl = new URL(window.location.href);
+
   const root = document.createElement('div');
   root.id = 'searchclock-root';
   const shadow = root.attachShadow({ mode: 'closed' });
@@ -49,9 +33,7 @@ function initSearchClock() {
     textContent: getStyles(isDarkTheme()),
   }));
 
-  const panel = document.createElement('div');
-  panel.className = 'sc-panel';
-  panel.innerHTML = getPanelHTML();
+  const panel = buildPanel();
   shadow.appendChild(panel);
 
   chrome.storage.sync.get({ qdr: '' }, ({ qdr }) => {
@@ -70,6 +52,7 @@ function initSearchClock() {
         dest += (dest.includes('?') ? '&' : '?') + `tbs=qdr:${qdr}`;
       }
       chrome.runtime.sendMessage({ type: 'updateQdr', qdr }, () => {
+        void chrome.runtime.lastError; // SW 再起動時などのエラーは無視して遷移優先
         window.location.href = dest;
       });
     });
@@ -83,30 +66,18 @@ function initSearchClock() {
   };
   chrome.storage.onChanged.addListener(storageListener);
 
-  // ルートが削除されたらクリーンアップ
-  const observer = new MutationObserver(() => {
-    if (!document.body.contains(root)) {
-      chrome.storage.onChanged.removeListener(storageListener);
-      observer.disconnect();
-    }
-  });
-  observer.observe(document.body, { childList: true });
-
-  centerCol.insertBefore(root, centerCol.firstChild);
-
   // Google検索ツールの期間フィルター変更を検出 → 拡張機能をオフ（後勝ち）
-  document.addEventListener('click', (e) => {
+  const clickHandler = (e) => {
     const link = e.target.closest('a');
     if (!link || !link.href) return;
 
     try {
       const linkUrl = new URL(link.href);
-      if (linkUrl.hostname !== window.location.hostname) return;
+      if (linkUrl.hostname !== cachedCurrentUrl.hostname) return;
       if (!linkUrl.pathname.includes('/search')) return;
 
-      const currentUrl = new URL(window.location.href);
       const linkTbs = linkUrl.searchParams.get('tbs');
-      const currentTbs = currentUrl.searchParams.get('tbs');
+      const currentTbs = cachedCurrentUrl.searchParams.get('tbs');
 
       // tbs変更なし → 対象外
       if (linkTbs === currentTbs) return;
@@ -117,17 +88,31 @@ function initSearchClock() {
         // 検索結果内のリンクは対象外
         if (link.closest('#rso')) return;
         // 検索タイプ切替（画像/ニュース等）は対象外
-        if (linkUrl.searchParams.get('tbm') !== currentUrl.searchParams.get('tbm')) return;
+        if (linkUrl.searchParams.get('tbm') !== cachedCurrentUrl.searchParams.get('tbm')) return;
       }
 
       e.preventDefault();
       chrome.runtime.sendMessage({ type: 'updateQdr', qdr: '' }, () => {
+        void chrome.runtime.lastError;
         window.location.href = link.href;
       });
     } catch (err) {
       console.warn('[SearchClock] リンク処理エラー:', err.message);
     }
-  }, true);
+  };
+  document.addEventListener('click', clickHandler, true);
+
+  // ルートが削除されたらクリーンアップ（centerCol 限定で監視コスト削減）
+  const observer = new MutationObserver(() => {
+    if (!document.body.contains(root)) {
+      chrome.storage.onChanged.removeListener(storageListener);
+      document.removeEventListener('click', clickHandler, true);
+      observer.disconnect();
+    }
+  });
+  observer.observe(centerCol, { childList: true });
+
+  centerCol.insertBefore(root, centerCol.firstChild);
 }
 
 function updateUI(shadow, qdr) {
@@ -140,24 +125,79 @@ function updateUI(shadow, qdr) {
   }
 }
 
-function getPanelHTML() {
-  const presetHTML = PRESETS.map(({ shortLabel, value }) =>
-    `<label class="sc-preset">
-      <input type="radio" name="qdr" value="${value}">
-      <span class="sc-chip">${shortLabel}</span>
-    </label>`
-  ).join('');
+// パネルを DOM API で組み立て（innerHTML を避けて将来的な XSS 混入を防止）
+function buildPanel() {
+  const panel = document.createElement('div');
+  panel.className = 'sc-panel';
 
-  return `
-    <div class="sc-panel-header">
-      <svg class="sc-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
-      <span class="sc-panel-title">SearchClock</span>
-      <span class="sc-status" id="sc-status">設定なし</span>
-    </div>
-    <div class="sc-panel-body">
-      <div class="sc-presets">${presetHTML}</div>
-    </div>
-  `;
+  const header = document.createElement('div');
+  header.className = 'sc-panel-header';
+  header.appendChild(buildLogoSvg(14));
+
+  const titleEl = document.createElement('span');
+  titleEl.className = 'sc-panel-title';
+  titleEl.textContent = 'SearchClock';
+  header.appendChild(titleEl);
+
+  const status = document.createElement('span');
+  status.className = 'sc-status';
+  status.id = 'sc-status';
+  status.textContent = '設定なし';
+  header.appendChild(status);
+
+  const body = document.createElement('div');
+  body.className = 'sc-panel-body';
+
+  const presetsWrap = document.createElement('div');
+  presetsWrap.className = 'sc-presets';
+  for (const { shortLabel, value } of PRESETS) {
+    const label = document.createElement('label');
+    label.className = 'sc-preset';
+
+    const input = document.createElement('input');
+    input.type = 'radio';
+    input.name = 'qdr';
+    input.value = value;
+    label.appendChild(input);
+
+    const chip = document.createElement('span');
+    chip.className = 'sc-chip';
+    chip.textContent = shortLabel;
+    label.appendChild(chip);
+
+    presetsWrap.appendChild(label);
+  }
+  body.appendChild(presetsWrap);
+
+  panel.appendChild(header);
+  panel.appendChild(body);
+  return panel;
+}
+
+function buildLogoSvg(size) {
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('class', 'sc-logo');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('width', String(size));
+  svg.setAttribute('height', String(size));
+  svg.setAttribute('fill', 'none');
+  svg.setAttribute('stroke', 'currentColor');
+  svg.setAttribute('stroke-width', '2');
+  svg.setAttribute('stroke-linecap', 'round');
+  svg.setAttribute('stroke-linejoin', 'round');
+
+  const circle = document.createElementNS(SVG_NS, 'circle');
+  circle.setAttribute('cx', '12');
+  circle.setAttribute('cy', '12');
+  circle.setAttribute('r', '10');
+  svg.appendChild(circle);
+
+  const hand = document.createElementNS(SVG_NS, 'polyline');
+  hand.setAttribute('points', '12,6 12,12 16,14');
+  svg.appendChild(hand);
+
+  return svg;
 }
 
 function getStyles(dark) {

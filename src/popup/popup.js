@@ -1,14 +1,10 @@
 // SearchClock — ポップアップ設定画面
-
-const PRESET_LABELS = {
-  h3: '3時間以内', h12: '12時間以内', d: '1日以内', d3: '3日以内',
-  w: '1週間以内', m: '1ヶ月以内', m3: '3ヶ月以内', m6: '半年以内',
-  y: '1年以内', y3: '3年以内',
-};
+// PRESETS / QDR_LABELS は ../shared/presets.js（popup.html で先にロード済み）
 
 function updateStatus(qdr) {
   const status = document.getElementById('status');
-  status.textContent = qdr ? `現在の設定: ${PRESET_LABELS[qdr] || qdr}` : '設定なし';
+  const label = QDR_LABELS[qdr];
+  status.textContent = label ? `現在の設定: ${label}` : '設定なし';
   status.className = 'sc-status sc-active';
 }
 
@@ -18,7 +14,33 @@ function updatePresetSelection(qdr) {
   }
 }
 
+// プリセットのラジオボタンを動的生成（プリセット追加時に HTML を触らなくてよい）
+function renderPresets() {
+  const container = document.getElementById('presets');
+  const fragment = document.createDocumentFragment();
+  for (const { shortLabel, value } of PRESETS) {
+    const label = document.createElement('label');
+    label.className = 'sc-preset';
+
+    const input = document.createElement('input');
+    input.type = 'radio';
+    input.name = 'qdr';
+    input.value = value;
+    label.appendChild(input);
+
+    const chip = document.createElement('span');
+    chip.className = 'sc-chip';
+    chip.textContent = shortLabel;
+    label.appendChild(chip);
+
+    fragment.appendChild(label);
+  }
+  container.appendChild(fragment);
+}
+
 async function init() {
+  renderPresets();
+
   const { qdr } = await chrome.storage.sync.get({ qdr: '' });
   updatePresetSelection(qdr);
   updateStatus(qdr);
@@ -32,8 +54,9 @@ async function init() {
 
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'sync' && changes.qdr) {
-      updatePresetSelection(changes.qdr.newValue);
-      updateStatus(changes.qdr.newValue);
+      const newVal = changes.qdr.newValue || '';
+      updatePresetSelection(newVal);
+      updateStatus(newVal);
     }
   });
 }
