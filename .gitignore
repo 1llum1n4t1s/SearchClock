@@ -1,6 +1,6 @@
 .claude/
 node_modules/
 webstore/images/
-images/
+icons/icon-*.png
 temp-build/
 *.zip

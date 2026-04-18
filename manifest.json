@@ -5,20 +5,20 @@
   "version": "1.0.4",
   "action": {
     "default_icon": {
-      "16": "images/icon-16.png",
-      "48": "images/icon-48.png",
-      "128": "images/icon-128.png"
+      "16": "icons/icon-16.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
     },
-    "default_popup": "popup/popup.html",
+    "default_popup": "src/popup/popup.html",
     "default_title": "SearchClock"
   },
   "icons": {
-    "16": "images/icon-16.png",
-    "48": "images/icon-48.png",
-    "128": "images/icon-128.png"
+    "16": "icons/icon-16.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
   },
   "background": {
-    "service_worker": "scripts/background.js"
+    "service_worker": "src/background/background.js"
   },
   "content_scripts": [
     {
@@ -35,7 +35,7 @@
         "*://www.google.co.kr/search*",
         "*://www.google.com.br/search*"
       ],
-      "js": ["scripts/content.js"],
+      "js": ["src/content/content.js"],
       "run_at": "document_idle"
     }
   ],

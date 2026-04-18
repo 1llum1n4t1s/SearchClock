@@ -4,7 +4,7 @@ const path = require('path');
 
 const sizes = [16, 48, 128];
 const svgPath = path.join(__dirname, '../icons/icon.svg');
-const imagesDir = path.join(__dirname, '../images');
+const iconsDir = path.join(__dirname, '../icons');
 
 async function generateIcons() {
   console.log('🎨 アイコン生成を開始します...\n');
@@ -14,10 +14,10 @@ async function generateIcons() {
     process.exit(1);
   }
 
-  fs.mkdirSync(imagesDir, { recursive: true });
+  fs.mkdirSync(iconsDir, { recursive: true });
 
   await Promise.all(sizes.map(async (size) => {
-    const outputPath = path.join(imagesDir, `icon-${size}.png`);
+    const outputPath = path.join(iconsDir, `icon-${size}.png`);
     try {
       await sharp(svgPath)
         .resize(size, size)
