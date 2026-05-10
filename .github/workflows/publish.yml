@@ -14,7 +14,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: リポジトリをチェックアウト
-        uses: actions/checkout@v5
+        # SHA pin (actions/checkout v5.0.1) でサプライチェーン攻撃を防ぐ
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
 
       - name: バージョンを取得
         id: version
@@ -36,11 +37,14 @@ jobs:
           echo "✅ ブランチ名と manifest バージョン一致: $expected"
 
       - name: Node セットアップ
-        uses: actions/setup-node@v5
+        # SHA pin (actions/setup-node v5.0.0) でサプライチェーン攻撃を防ぐ
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
         with:
           node-version: '20'
 
       - name: 依存インストール
+        # npm ci で package-lock.json の integrity を検証してインストール
+        # chrome-webstore-upload-cli も devDependencies に固定済み
         run: npm ci
 
       - name: アイコン生成
@@ -59,7 +63,9 @@ jobs:
           CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
           CWS_EXTENSION_ID: ${{ secrets.CWS_EXTENSION_ID }}
         run: |
-          npx --yes chrome-webstore-upload-cli@3 upload \
+          # devDependencies に固定した chrome-webstore-upload-cli を npm exec で起動
+          # （npx --yes による毎回ネットワーク取得 + 認証情報漏洩リスクを回避）
+          npm exec --no-install -- chrome-webstore-upload upload \
             --source search-clock.zip \
             --extension-id "$CWS_EXTENSION_ID" \
             --client-id "$CWS_CLIENT_ID" \

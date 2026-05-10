@@ -1,6 +1,8 @@
 // SearchClock — Google検索ページに設定パネルを埋め込み
 // Shadow DOMでスタイルを完全に分離、Googleのライト/ダークテーマに自動対応
-// PRESETS / QDR_LABELS は src/shared/presets.js から注入される（同一 content_scripts 内で共有）
+// PRESETS / QDR_LABELS / VALID_QDR_VALUES / DEFAULT_SETTINGS / refPresetIndex /
+// TBS_PARAM_KEY / QDR_PREFIX / extractQdrFromTbs は src/shared/presets.js から注入される
+// （同一 content_scripts 内で共有、manifest.json の js 配列で先に読み込まれる）
 
 // DOM上の既存要素で多重注入を防止（content scriptのletフラグはナビゲーションでリセットされるため不可）
 if (!document.getElementById('searchclock-root')) {
@@ -15,15 +17,24 @@ function isDarkTheme() {
 }
 
 function qdrToLabel(qdr) {
-  return qdr ? (QDR_LABELS[qdr] || qdr) : '設定なし';
+  return qdr ? (QDR_LABELS[qdr] || qdr) : '期間指定なし';
+}
+
+// URL の tbs から qdr 値を抽出（不正値・存在しない場合は ''）
+function urlQdr(url) {
+  const qdr = extractQdrFromTbs(url.searchParams.get(TBS_PARAM_KEY));
+  return qdr && VALID_QDR_VALUES.has(qdr) ? qdr : '';
 }
 
 function initSearchClock() {
   const centerCol = document.getElementById('center_col');
   if (!centerCol) return;
 
-  // 現在URLはナビゲーションで content script ごと作り直されるので一度だけパース
-  const cachedCurrentUrl = new URL(window.location.href);
+  // 現在URL: 通常ナビゲーションでは content script ごと作り直されるが、
+  // bfcache 復元時は同一インスタンスが再利用されるため pageshow で更新可能なよう let
+  let cachedCurrentUrl = new URL(window.location.href);
+  // このページの実際の絞り込み状態（tbsパラメータが真実）
+  let currentQdr = urlQdr(cachedCurrentUrl);
 
   const root = document.createElement('div');
   root.id = 'searchclock-root';
@@ -36,21 +47,50 @@ function initSearchClock() {
   const panel = buildPanel();
   shadow.appendChild(panel);
 
-  chrome.storage.sync.get({ qdr: '' }, ({ qdr }) => {
-    updateUI(shadow, qdr);
+  // updateUI が触る要素を一度だけ解決してキャッシュ（毎回 getElementById する 7 回分を排除）
+  const refs = {
+    status: shadow.getElementById('sc-status'),
+    tbs: shadow.getElementById('sc-tbs'),
+    issueNo: shadow.getElementById('sc-issue-no'),
+    panel: shadow.getElementById('sc-panel'),
+    keepInput: shadow.getElementById('sc-keep-input'),
+    keepWrap: shadow.getElementById('sc-keep'),
+    modeChip: shadow.getElementById('sc-mode-chip'),
+    radios: shadow.querySelectorAll('input[name="qdr"]'),
+  };
+
+  // 初期状態を反映（URLベースの qdr + storage の keepSetting）
+  // NOTE: 旧版ではここで keepSetting=OFF 時に storage.qdr を強制クリアしていたが、
+  // 複数タブで同じ Google を開いている時に「タブ A の OFF 時クリアがタブ B (ON モード) の
+  // DNR ルールを破壊する」問題があったため廃止。background は keepSetting=false の間は
+  // ルールを作らないので storage.qdr に残値があっても無害。
+  chrome.storage.sync.get(DEFAULT_SETTINGS, ({ keepSetting }) => {
+    updateUI(refs, currentQdr, keepSetting);
   });
 
   // プリセット選択 → background.jsのルール更新完了を待ってからナビゲーション
-  for (const radio of shadow.querySelectorAll('input[name="qdr"]')) {
+  for (const radio of refs.radios) {
     radio.addEventListener('change', () => {
       const qdr = radio.value;
-      // URLSearchParamsはコロンを%3Aにエンコードしてしまうため手動でtbsを構築
+      // URLSearchParams はコロンを %3A にエンコードしてしまうため手動で tbs を構築。
+      // 既存 tbs から qdr セグメントだけ除去し、画像サイズ (isz) / ソート (sbd) などの
+      // ユーザー指定フィルタは保持する。
       const url = new URL(window.location.href);
-      url.searchParams.delete('tbs');
+      const existingTbs = url.searchParams.get(TBS_PARAM_KEY);
+      url.searchParams.delete(TBS_PARAM_KEY);
       let dest = url.toString();
-      if (qdr) {
-        dest += (dest.includes('?') ? '&' : '?') + `tbs=qdr:${qdr}`;
+
+      const otherSegments = existingTbs
+        ? existingTbs.split(',').filter((s) => !s.startsWith(QDR_PREFIX))
+        : [];
+      const newSegments = qdr ? [`${QDR_PREFIX}${qdr}`, ...otherSegments] : otherSegments;
+      if (newSegments.length > 0) {
+        dest += (dest.includes('?') ? '&' : '?') + `${TBS_PARAM_KEY}=${newSegments.join(',')}`;
       }
+
+      // storage.qdr を更新しておく：
+      //   ON モードなら declarativeNetRequest ルールが再構築される
+      //   OFF モードなら background はルールを作らないが、storage の値は表示同期に使われる
       chrome.runtime.sendMessage({ type: 'updateQdr', qdr }, () => {
         void chrome.runtime.lastError; // SW 再起動時などのエラーは無視して遷移優先
         window.location.href = dest;
@@ -58,101 +98,249 @@ function initSearchClock() {
     });
   }
 
+  // 「期間を維持」switch のトグル
+  // OFF→ON 切替時は、今このページで適用されている qdr (URL の tbs 由来) を新しい維持値として保存。
+  // 「1年で絞り込み中に維持を ON にしたら 1年が引き継がれる」直感に合わせた挙動。
+  // ON→OFF 切替時は keepSetting だけ変える（storage.qdr は次の updateQdr メッセージまで残るが、
+  // background が keepSetting=false の間は DNR ルールを作らないので無害）。
+  refs.keepInput.addEventListener('change', async () => {
+    const next = !!refs.keepInput.checked;
+    const updates = next
+      ? { keepSetting: true, qdr: currentQdr }
+      : { keepSetting: false };
+    try {
+      await chrome.storage.sync.set(updates);
+    } catch (err) {
+      console.warn('[SearchClock] keepSetting 保存失敗:', err?.message ?? err);
+      refs.keepInput.checked = !next; // UI ロールバック
+    }
+  });
+
   // 外部からの変更を監視
+  //   - keepSetting 変更 → pin pill の表示更新
+  //   - qdr 変更 → URL は不変なので状態カードは更新しない（URLが真実）
   const storageListener = (changes, area) => {
-    if (area === 'sync' && changes.qdr) {
-      updateUI(shadow, changes.qdr.newValue);
+    if (area !== 'sync') return;
+    if (changes.keepSetting) {
+      updateUI(refs, currentQdr, !!changes.keepSetting.newValue);
     }
   };
   chrome.storage.onChanged.addListener(storageListener);
 
   // Google検索ツールの期間フィルター変更を検出 → 拡張機能をオフ（後勝ち）
+  // tbs 全体ではなく qdr セグメントだけを比較することで、画像サイズ等の
+  // 期間外 tbs 変更（"isz:l,qdr:y" 等）での誤発動を防ぐ。
+  let currentQdrParam = extractQdrFromTbs(cachedCurrentUrl.searchParams.get(TBS_PARAM_KEY));
+  let currentTbm = cachedCurrentUrl.searchParams.get('tbm');
+
   const clickHandler = (e) => {
     const link = e.target.closest('a');
     if (!link || !link.href) return;
+    // 文字列レベルの早期リターンで URL パースコストを削減
+    // /search 含まないリンクは無関係。tbs 含まず & 現在も qdr 無しなら判定不要。
+    const href = link.href;
+    if (!href.includes('/search')) return;
+    if (!href.includes('tbs=') && !currentQdrParam) return;
 
     try {
-      const linkUrl = new URL(link.href);
+      const linkUrl = new URL(href);
       if (linkUrl.hostname !== cachedCurrentUrl.hostname) return;
       if (!linkUrl.pathname.includes('/search')) return;
 
-      const linkTbs = linkUrl.searchParams.get('tbs');
-      const currentTbs = cachedCurrentUrl.searchParams.get('tbs');
+      const linkQdr = extractQdrFromTbs(linkUrl.searchParams.get(TBS_PARAM_KEY));
 
-      // tbs変更なし → 対象外
-      if (linkTbs === currentTbs) return;
+      // qdr セグメントが変わっていない → 期間以外の tbs 変更なので対象外
+      if (linkQdr === currentQdrParam) return;
 
-      if (linkTbs === null) {
-        // tbsなしリンク（「期間指定なし」）→ 現在tbsがある場合のみ対象
-        if (!currentTbs) return;
+      if (linkQdr === null) {
+        // qdr が消えるリンク（「期間指定なし」を選んだ）→ 現在 qdr がある場合のみ対象
+        if (!currentQdrParam) return;
         // 検索結果内のリンクは対象外
         if (link.closest('#rso')) return;
         // 検索タイプ切替（画像/ニュース等）は対象外
-        if (linkUrl.searchParams.get('tbm') !== cachedCurrentUrl.searchParams.get('tbm')) return;
+        if (linkUrl.searchParams.get('tbm') !== currentTbm) return;
       }
 
       e.preventDefault();
       chrome.runtime.sendMessage({ type: 'updateQdr', qdr: '' }, () => {
         void chrome.runtime.lastError;
-        window.location.href = link.href;
+        window.location.href = href;
       });
     } catch (err) {
-      console.warn('[SearchClock] リンク処理エラー:', err.message);
+      console.warn('[SearchClock] リンク処理エラー:', err instanceof Error ? err.message : err);
     }
   };
   document.addEventListener('click', clickHandler, true);
 
-  // ルートが削除されたらクリーンアップ（centerCol 限定で監視コスト削減）
+  // bfcache 復元時に状態を再評価（cachedCurrentUrl が古いままだと clickHandler が誤判定するため）
+  const pageshowHandler = (e) => {
+    if (!e.persisted) return;
+    cachedCurrentUrl = new URL(window.location.href);
+    currentQdr = urlQdr(cachedCurrentUrl);
+    currentQdrParam = extractQdrFromTbs(cachedCurrentUrl.searchParams.get(TBS_PARAM_KEY));
+    currentTbm = cachedCurrentUrl.searchParams.get('tbm');
+    chrome.storage.sync.get(DEFAULT_SETTINGS, ({ keepSetting }) => {
+      updateUI(refs, currentQdr, keepSetting);
+    });
+  };
+  window.addEventListener('pageshow', pageshowHandler);
+
+  // root を先に挿入してから監視を開始（observe を先に呼ぶと、Google ページの動的更新で
+  // 「root がまだ body に入っていない」状態で cleanup が即発火してしまう）
+  centerCol.insertBefore(root, centerCol.firstChild);
+
+  // ルートが削除されたらクリーンアップ。
+  // centerCol の childList と、その親の childList を両方監視することで、
+  //   - root が centerCol から取り除かれるケース
+  //   - centerCol 自体が差し替えられる SPA 的遷移
+  // の両方を捕捉。subtree: true は Google ページの mutation 頻度が高すぎて重いので使わない。
   const observer = new MutationObserver(() => {
     if (!document.body.contains(root)) {
       chrome.storage.onChanged.removeListener(storageListener);
       document.removeEventListener('click', clickHandler, true);
+      window.removeEventListener('pageshow', pageshowHandler);
       observer.disconnect();
     }
   });
   observer.observe(centerCol, { childList: true });
-
-  centerCol.insertBefore(root, centerCol.firstChild);
+  if (centerCol.parentNode) {
+    observer.observe(centerCol.parentNode, { childList: true });
+  }
 }
 
-function updateUI(shadow, qdr) {
-  for (const radio of shadow.querySelectorAll('input[name="qdr"]')) {
+// UI 全体の状態を更新（qdr は URL から導出した実絞り込み、keepSetting は維持モード）
+// refs は initSearchClock で一度だけキャッシュされた DOM 参照
+function updateUI(refs, qdr, keepSetting) {
+  for (const radio of refs.radios) {
     radio.checked = radio.value === (qdr || '');
   }
-  const status = shadow.getElementById('sc-status');
-  if (status) {
-    status.textContent = qdrToLabel(qdr);
-  }
+
+  refs.status.textContent = qdrToLabel(qdr);
+  refs.tbs.textContent = qdr ? `${QDR_PREFIX}${qdr}` : '—';
+  refs.issueNo.textContent = refPresetIndex(qdr);
+  refs.panel.classList.toggle('is-active', !!qdr);
+
+  refs.keepInput.checked = !!keepSetting;
+  refs.keepWrap.title = keepSetting
+    ? '期間を維持中：次の検索でも設定が適用されます'
+    : '一回限り：次の検索で自動的にオフに戻ります';
+  // モード表示: ON=keep / OFF=once（常時表示で「壊れた」誤認を防ぐ）
+  const mode = keepSetting ? 'keep' : 'once';
+  refs.keepWrap.dataset.mode = mode;
+  refs.modeChip.textContent = keepSetting ? '維持中' : '1回限り';
+  refs.modeChip.dataset.mode = mode;
+}
+
+// 区切り点（dot separator）を作る小さなヘルパ
+function buildDot() {
+  const dot = document.createElement('span');
+  dot.className = 'sc-dot';
+  dot.setAttribute('aria-hidden', 'true');
+  dot.textContent = '·';
+  return dot;
 }
 
 // パネルを DOM API で組み立て（innerHTML を避けて将来的な XSS 混入を防止）
 function buildPanel() {
   const panel = document.createElement('div');
   panel.className = 'sc-panel';
+  panel.id = 'sc-panel';
 
+  // ─── ヘッダー（1 行に圧縮：mark · title · No. · 状態 · tbs · keep pill） ─────
   const header = document.createElement('div');
-  header.className = 'sc-panel-header';
-  header.appendChild(buildLogoSvg(14));
+  header.className = 'sc-header';
 
-  const titleEl = document.createElement('span');
-  titleEl.className = 'sc-panel-title';
-  titleEl.textContent = 'SearchClock';
-  header.appendChild(titleEl);
+  const mark = document.createElement('span');
+  mark.className = 'sc-mark';
+  mark.appendChild(buildLogoSvg(12));
+  header.appendChild(mark);
+
+  const title = document.createElement('span');
+  title.className = 'sc-title';
+  title.textContent = 'SearchClock';
+  header.appendChild(title);
+
+  header.appendChild(buildDot());
+
+  const issue = document.createElement('span');
+  issue.className = 'sc-issue';
+  const issueEn = document.createElement('span');
+  issueEn.className = 'sc-issue-en';
+  issueEn.textContent = 'No.';
+  const issueNo = document.createElement('span');
+  issueNo.className = 'sc-issue-no';
+  issueNo.id = 'sc-issue-no';
+  issueNo.textContent = '—';
+  issue.appendChild(issueEn);
+  issue.appendChild(issueNo);
+  header.appendChild(issue);
+
+  header.appendChild(buildDot());
 
   const status = document.createElement('span');
   status.className = 'sc-status';
   status.id = 'sc-status';
-  status.textContent = '設定なし';
+  status.textContent = '期間指定なし';
   header.appendChild(status);
 
-  const body = document.createElement('div');
-  body.className = 'sc-panel-body';
+  // tbs ラベル（右寄せ）
+  const tbsWrap = document.createElement('span');
+  tbsWrap.className = 'sc-tbs-wrap';
+  const tbsLabel = document.createElement('span');
+  tbsLabel.className = 'sc-tbs-label';
+  tbsLabel.textContent = 'tbs=';
+  const tbs = document.createElement('span');
+  tbs.className = 'sc-tbs';
+  tbs.id = 'sc-tbs';
+  tbs.textContent = '—';
+  tbsWrap.appendChild(tbsLabel);
+  tbsWrap.appendChild(tbs);
+  header.appendChild(tbsWrap);
 
+  // モードチップ（switch の左隣・現在のモードを常時可視化、once 誤認防止）
+  const modeChip = document.createElement('span');
+  modeChip.className = 'sc-mode-chip';
+  modeChip.id = 'sc-mode-chip';
+  modeChip.dataset.mode = 'once';
+  modeChip.textContent = '1回限り';
+  header.appendChild(modeChip);
+
+  // 「期間を維持」switch + 日本語ラベル
+  const keepWrap = document.createElement('label');
+  keepWrap.className = 'sc-keep';
+  keepWrap.id = 'sc-keep';
+
+  const keepLabel = document.createElement('span');
+  keepLabel.className = 'sc-keep-label';
+  keepLabel.textContent = '期間を維持';
+  keepWrap.appendChild(keepLabel);
+
+  const keepSwitch = document.createElement('span');
+  keepSwitch.className = 'sc-keep-switch';
+
+  const keepInput = document.createElement('input');
+  keepInput.type = 'checkbox';
+  keepInput.id = 'sc-keep-input';
+  keepInput.setAttribute('aria-label', '期間を維持');
+  keepSwitch.appendChild(keepInput);
+
+  const keepTrack = document.createElement('span');
+  keepTrack.className = 'sc-keep-track';
+  keepTrack.setAttribute('aria-hidden', 'true');
+  keepSwitch.appendChild(keepTrack);
+
+  keepWrap.appendChild(keepSwitch);
+  header.appendChild(keepWrap);
+
+  panel.appendChild(header);
+
+  // ─── プリセット行（1 行 11 列） ───────────────────────
   const presetsWrap = document.createElement('div');
   presetsWrap.className = 'sc-presets';
-  for (const { shortLabel, value } of PRESETS) {
+  for (const { shortLabel, en, value } of PRESETS) {
     const label = document.createElement('label');
     label.className = 'sc-preset';
+    if (!value) label.dataset.off = 'true';
 
     const input = document.createElement('input');
     input.type = 'radio';
@@ -162,15 +350,22 @@ function buildPanel() {
 
     const chip = document.createElement('span');
     chip.className = 'sc-chip';
-    chip.textContent = shortLabel;
-    label.appendChild(chip);
 
+    const jp = document.createElement('span');
+    jp.className = 'sc-chip-jp';
+    jp.textContent = shortLabel;
+    chip.appendChild(jp);
+
+    const enEl = document.createElement('span');
+    enEl.className = 'sc-chip-en';
+    enEl.textContent = en;
+    chip.appendChild(enEl);
+
+    label.appendChild(chip);
     presetsWrap.appendChild(label);
   }
-  body.appendChild(presetsWrap);
+  panel.appendChild(presetsWrap);
 
-  panel.appendChild(header);
-  panel.appendChild(body);
   return panel;
 }
 
@@ -200,55 +395,362 @@ function buildLogoSvg(size) {
   return svg;
 }
 
-function getStyles(dark) {
-  // 共通CSS
-  const common = `
+// フォントは system font fallback のみ（フィンガープリント窓口を閉じるため
+// web_accessible_resources でのフォント公開は廃止）
+// Hiragino Sans / Noto Sans JP / Segoe UI が日本語環境ではほぼ常に利用可能
+
+// テーマ変数（ライト = ラベンダー紙×紫、ダーク = 墨黒×明紫）
+const THEME_DARK = `
+    :host {
+      --ink: #efe8df;
+      --ink-soft: #b0a89c;
+      --ink-faint: #6b6358;
+      --paper: #1d181f;
+      --paper-deep: #14101a;
+      --paper-card: #25202a;
+      --rule: #3a3340;
+      --rule-soft: #2a242e;
+      --rule-strong: #54454f;
+      --accent: #a892e2;
+      --accent-deep: #c2b0eb;
+      --accent-soft: #2a2240;
+    }
+  `;
+const THEME_LIGHT = `
+    :host {
+      --ink: #1f1c2b;
+      --ink-soft: #564f6b;
+      --ink-faint: #988ea7;
+      --paper: #fbfaff;
+      --paper-deep: #f3f0fa;
+      --paper-card: #ffffff;
+      --rule: #e4dff0;
+      --rule-soft: #efebf6;
+      --rule-strong: #cdc5e0;
+      --accent: #6B4FB3;
+      --accent-deep: #4D3590;
+      --accent-soft: #ede9f7;
+    }
+  `;
+
+// 注入パネル: 縦の高さを最小化（ヘッダ + chip 行の 2 段、合計 ~62px）
+const STYLES_COMMON = `
     :host {
       all: initial;
       display: block;
-      font-family: 'Segoe UI', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
-      font-size: 13px;
       width: 100%;
-      margin-bottom: 12px;
+      margin: 0 0 10px;
+      font-family: "Hiragino Sans", "Noto Sans JP", "Segoe UI", system-ui, sans-serif;
+      font-size: 12px;
+      line-height: 1.4;
+      color: var(--ink);
     }
-    .sc-panel { width: 100%; border-radius: 12px; overflow: hidden; }
-    .sc-panel-header { display: flex; align-items: center; gap: 6px; padding: 4px 12px; }
-    .sc-logo { flex-shrink: 0; width: 14px; height: 14px; }
-    .sc-panel-title { font-size: 12px; font-weight: 600; flex: 1; }
-    .sc-panel-body { padding: 10px 12px; }
-    .sc-presets { display: flex; flex-wrap: wrap; gap: 5px; }
-    .sc-preset { cursor: pointer; }
-    .sc-preset input[type="radio"] { display: none; }
+
+    .sc-panel {
+      background: var(--paper);
+      border: 1px solid var(--rule);
+      border-radius: 10px;
+      overflow: hidden;
+      position: relative;
+      transition: border-color 200ms ease, box-shadow 200ms ease;
+    }
+    /* 上端の小口飾り（accent + ink） */
+    .sc-panel::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 14px; right: 14px;
+      height: 1.5px;
+      background: linear-gradient(
+        to right,
+        var(--accent) 0,
+        var(--accent) 24px,
+        var(--ink) 24px,
+        var(--ink) 26px,
+        transparent 26px
+      );
+    }
+    .sc-panel.is-active {
+      border-color: var(--rule-strong);
+      box-shadow: inset 2px 0 0 var(--accent);
+    }
+
+    /* ── Header (1行に集約、~28px) ─────────── */
+    .sc-header {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      padding: 6px 12px 5px;
+      border-bottom: 1px dashed var(--rule);
+      min-height: 26px;
+      flex-wrap: nowrap;
+      overflow: hidden;
+    }
+    .sc-mark {
+      display: inline-grid; place-items: center;
+      width: 18px; height: 18px;
+      color: var(--accent);
+      flex-shrink: 0;
+      align-self: center;
+    }
+    .sc-logo { display: block; }
+
+    .sc-title {
+      font-family: "Hiragino Mincho ProN", "Hiragino Mincho Pro", "Noto Serif JP", Georgia, serif;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      color: var(--ink);
+      flex-shrink: 0;
+    }
+
+    .sc-dot {
+      color: var(--ink-faint);
+      font-size: 11px;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+
+    .sc-issue {
+      display: inline-flex; align-items: baseline; gap: 3px;
+      font-family: "SFMono-Regular", "Cascadia Mono", Consolas, "Courier New", monospace;
+      font-size: 9px;
+      color: var(--ink-faint);
+      letter-spacing: 0.08em;
+      flex-shrink: 0;
+    }
+    .sc-issue-en {
+      font-style: italic;
+      font-family: "Hiragino Mincho ProN", "Hiragino Mincho Pro", "Noto Serif JP", Georgia, serif;
+    }
+    .sc-issue-no {
+      font-variant-numeric: tabular-nums;
+      color: var(--accent-deep);
+      font-weight: 600;
+      font-size: 10.5px;
+    }
+
+    .sc-status {
+      font-family: "Hiragino Mincho ProN", "Hiragino Mincho Pro", "Noto Serif JP", Georgia, serif;
+      font-size: 11.5px;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      color: var(--ink);
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .sc-panel.is-active .sc-status { color: var(--accent-deep); }
+
+    .sc-tbs-wrap {
+      margin-left: auto;
+      display: inline-flex; align-items: baseline; gap: 2px;
+      font-family: "SFMono-Regular", "Cascadia Mono", Consolas, "Courier New", monospace;
+      font-size: 9.5px;
+      letter-spacing: 0.04em;
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
+    }
+    .sc-tbs-label { color: var(--ink-faint); }
+    .sc-tbs { color: var(--ink-soft); }
+    .sc-panel.is-active .sc-tbs { color: var(--accent); font-weight: 600; }
+
+    /* ── Mode chip（1回限り / 維持中の常時可視化） ── */
+    .sc-mode-chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 7px;
+      border-radius: 99px;
+      font-family: "Hiragino Sans", "Noto Sans JP", "Segoe UI", sans-serif;
+      font-size: 9.5px;
+      letter-spacing: 0.06em;
+      font-weight: 600;
+      flex-shrink: 0;
+      border: 1px solid var(--rule-strong);
+      background: var(--paper-deep);
+      color: var(--ink-soft);
+      transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+    }
+    .sc-mode-chip[data-mode="keep"] {
+      background: var(--accent-soft);
+      color: var(--accent-deep);
+      border-color: var(--accent);
+    }
+
+    /* ── Switch（期間を維持） ─────────────── */
+    .sc-keep {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 2px 8px 2px 10px;
+      background: var(--paper-card);
+      border: 1px solid var(--rule);
+      border-radius: 99px;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition:
+        background 140ms ease,
+        border-color 140ms ease;
+    }
+    .sc-keep:hover {
+      border-color: var(--rule-strong);
+    }
+    .sc-keep:has(input:checked) {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+    }
+    .sc-keep-label {
+      font-family: "Hiragino Sans", "Noto Sans JP", "Segoe UI", sans-serif;
+      font-size: 11.5px;
+      letter-spacing: 0.04em;
+      color: var(--ink-soft);
+      font-weight: 500;
+      user-select: none;
+      transition: color 140ms ease;
+    }
+    .sc-keep:hover .sc-keep-label { color: var(--ink); }
+    .sc-keep:has(input:checked) .sc-keep-label {
+      color: var(--accent-deep);
+      font-weight: 600;
+    }
+
+    .sc-keep-switch {
+      position: relative;
+      width: 26px;
+      height: 14px;
+      flex-shrink: 0;
+    }
+    .sc-keep-switch input {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      opacity: 0;
+      cursor: pointer;
+      z-index: 2;
+    }
+    .sc-keep-track {
+      position: absolute;
+      inset: 0;
+      background: var(--rule-strong);
+      border-radius: 5px;
+      transition: background 180ms ease;
+    }
+    .sc-keep-track::before {
+      content: "";
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      top: 2px;
+      left: 2px;
+      background: var(--paper);
+      border-radius: 3px;
+      transition: transform 200ms cubic-bezier(0.65, 0, 0.35, 1);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    }
+    .sc-keep-switch input:checked + .sc-keep-track {
+      background: var(--accent);
+    }
+    .sc-keep-switch input:checked + .sc-keep-track::before {
+      transform: translateX(12px);
+    }
+    .sc-keep-switch input:focus-visible + .sc-keep-track {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    /* ── Presets (1 行 × 11 列) ──────────── */
+    .sc-presets {
+      display: grid;
+      grid-template-columns: repeat(11, minmax(0, 1fr));
+      gap: 4px;
+      padding: 5px 10px 7px;
+    }
+    /* 狭幅では 6 列にフォールバック */
+    @media (max-width: 640px) {
+      .sc-presets { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+    }
+
+    .sc-preset {
+      cursor: pointer;
+      display: block;
+      position: relative;
+    }
+    .sc-preset input[type="radio"] {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+      inset: 0;
+    }
+
     .sc-chip {
-      display: inline-block; padding: 5px 10px;
-      border-radius: 16px; font-size: 11px; font-weight: 500;
-      transition: all 0.15s ease; user-select: none;
+      display: flex;
+      flex-direction: row;
+      align-items: baseline;
+      justify-content: center;
+      gap: 4px;
+      padding: 4px 4px 3px;
+      background: var(--paper-card);
+      border: 1px solid var(--rule);
+      border-radius: 5px;
+      transition:
+        border-color 140ms ease,
+        background 140ms ease,
+        color 140ms ease;
+      user-select: none;
+      text-align: center;
+      line-height: 1.15;
+      min-height: 24px;
+      white-space: nowrap;
     }
-    .sc-status { font-size: 10px; padding: 2px 6px; border-radius: 10px; white-space: nowrap; }
+    .sc-chip-jp {
+      font-size: 10.5px;
+      font-weight: 600;
+      color: var(--ink);
+      letter-spacing: 0.02em;
+    }
+    .sc-chip-en {
+      font-family: "SFMono-Regular", "Cascadia Mono", Consolas, "Courier New", monospace;
+      font-size: 8px;
+      color: var(--ink-faint);
+      letter-spacing: 0.06em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .sc-preset:hover .sc-chip {
+      border-color: var(--rule-strong);
+    }
+    .sc-preset:hover .sc-chip-en { color: var(--ink-soft); }
+
+    .sc-preset input:checked + .sc-chip {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+    .sc-preset input:checked + .sc-chip .sc-chip-jp { color: var(--accent-deep); }
+    .sc-preset input:checked + .sc-chip .sc-chip-en { color: var(--accent); }
+
+    .sc-preset[data-off="true"] input:checked + .sc-chip {
+      background: var(--paper-deep);
+      border-color: var(--ink);
+    }
+    .sc-preset[data-off="true"] input:checked + .sc-chip .sc-chip-jp { color: var(--ink); }
+    .sc-preset[data-off="true"] input:checked + .sc-chip .sc-chip-en { color: var(--ink-soft); }
+
+    .sc-preset input:focus-visible + .sc-chip {
+      outline: 2px solid var(--accent);
+      outline-offset: 1px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      * { transition: none !important; animation: none !important; }
+    }
   `;
 
-  // テーマ別CSS
-  const theme = dark ? `
-    :host { color: #e8eaed; }
-    .sc-panel { background: #303134; border: 1px solid #3c4043; }
-    .sc-panel-header { background: #3c4043; color: #e8eaed; }
-    .sc-logo { color: #8ab4f8; }
-    .sc-panel-title { color: #e8eaed; }
-    .sc-chip { border: 1px solid #5f6368; color: #bdc1c6; background: #303134; }
-    .sc-chip:hover { background: #3c4043; border-color: #8ab4f8; color: #8ab4f8; }
-    .sc-preset input[type="radio"]:checked + .sc-chip { background: #8ab4f8; border-color: #8ab4f8; color: #202124; font-weight: 600; }
-    .sc-status { color: #9aa0a6; background: rgba(255,255,255,0.08); }
-  ` : `
-    :host { color: #202124; }
-    .sc-panel { background: linear-gradient(135deg, #f0f4ff 0%, #faf0ff 100%); border: 1px solid #d4d0f0; }
-    .sc-panel-header { background: linear-gradient(135deg, #667eea22 0%, #764ba222 100%); border-bottom: 1px solid #d4d0f0; }
-    .sc-logo { color: #5b5fc7; }
-    .sc-panel-title { color: #4a4a6a; }
-    .sc-chip { border: 1px solid #c8c4e8; color: #4a4a6a; background: rgba(255, 255, 255, 0.8); }
-    .sc-chip:hover { background: #ede9fe; border-color: #8b7cf7; color: #5b46d6; }
-    .sc-preset input[type="radio"]:checked + .sc-chip { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-color: transparent; color: #fff; font-weight: 600; box-shadow: 0 1px 4px rgba(102, 126, 234, 0.3); }
-    .sc-status { color: #7c6faa; background: rgba(123, 97, 255, 0.08); }
-  `;
+// テーマ別 CSS をモジュール初期化時に 1 度だけ構築（毎ページの concat コストを排除）
+const STYLES_DARK = THEME_DARK + STYLES_COMMON;
+const STYLES_LIGHT = THEME_LIGHT + STYLES_COMMON;
 
-  return common + theme;
+function getStyles(dark) {
+  return dark ? STYLES_DARK : STYLES_LIGHT;
 }
