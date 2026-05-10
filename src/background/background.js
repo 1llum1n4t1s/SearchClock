@@ -20,8 +20,9 @@ const GOOGLE_DOMAINS = [
   'www.google.com.br',
 ];
 
-const REDIRECT_RULE_ID = 1;
-const SKIP_RULE_ID = 2;
+const ADD_RULE_ID = 1;     // tbs パラメータが無い URL に新規追加
+const SKIP_RULE_ID = 2;    // 既に qdr を含む tbs はそのまま通す
+const MERGE_RULE_ID = 3;   // tbs 有り & qdr 無し: 既存セグメント保持して qdr を先頭に挿入
 
 // バッジ色
 //   ON: 紫アクセント（CSS の --accent ライト値と意図的に同一）
@@ -47,28 +48,50 @@ function enqueueUpdateRules(qdr, keepSetting) {
 // 「期間を維持」がOFFのときは、保存済み qdr に関わらずルールを作らない。
 // → 検索フォーム経由のリクエストには tbs を付与せず自然に「期間指定なし」になる。
 // チップ選択時の URL は content.js が手動で tbs を付与するので、その回限りは効く。
+//
+// ルール構成（既存 tbs 値を保持しつつ qdr を付与する 3 段構成）:
+//   SKIP  (priority 3, allow)   : tbs に qdr セグメント含む → そのまま通す
+//   MERGE (priority 2, redirect): tbs あり & qdr なし → 既存セグメントを保持し qdr を先頭挿入
+//                                  (例 tbs=isz:l → tbs=qdr:y,isz:l)
+//   ADD   (priority 1, redirect): tbs なし → addOrReplaceParams で qdr=Y を新規追加
 async function updateRules(qdr, keepSetting) {
   const effectiveQdr = keepSetting ? qdr : '';
 
   // remove と add を単一呼び出しにまとめてルール空白期間をなくす
   await chrome.declarativeNetRequest.updateDynamicRules({
-    removeRuleIds: [REDIRECT_RULE_ID, SKIP_RULE_ID],
+    removeRuleIds: [ADD_RULE_ID, SKIP_RULE_ID, MERGE_RULE_ID],
     addRules: effectiveQdr ? [
-      // qdr 形式の tbs を持つ URL のみ skip（content.js が手動付与した URL の二重変換を防ぐ）。
-      // tbs=isz:l のような qdr 以外の値はマッチさせず、REDIRECT_RULE で qdr を上書き付与する。
       {
         id: SKIP_RULE_ID,
-        priority: 2,
+        priority: 3,
         action: { type: 'allow' },
         condition: {
-          regexFilter: '.*[?&]tbs=[^&]*qdr:.*',
+          regexFilter: '[?&]tbs=[^&]*qdr:',
           requestDomains: GOOGLE_DOMAINS,
           resourceTypes: ['main_frame'],
         },
       },
-      // tbs に qdr が含まれない URL に期間指定パラメータを追加
+      // 既存 tbs に qdr が含まれない場合 → 既存セグメントを capture group で保持しつつ
+      // qdr を先頭に挿入。\1 = "?" or "&" + 前部、\2 = 既存 tbs 値、\3 = 残りクエリ。
+      // 画像サイズ (isz)、ソート (sbd) などのユーザー指定フィルタが消えないようにするのが目的。
       {
-        id: REDIRECT_RULE_ID,
+        id: MERGE_RULE_ID,
+        priority: 2,
+        action: {
+          type: 'redirect',
+          redirect: {
+            regexSubstitution: `\\1tbs=${QDR_PREFIX}${effectiveQdr},\\2\\3`,
+          },
+        },
+        condition: {
+          regexFilter: '^(.*[?&])tbs=([^&]+)(.*)$',
+          requestDomains: GOOGLE_DOMAINS,
+          resourceTypes: ['main_frame'],
+        },
+      },
+      // tbs パラメータ自体が無い URL に qdr を追加
+      {
+        id: ADD_RULE_ID,
         priority: 1,
         action: {
           type: 'redirect',

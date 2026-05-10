@@ -72,16 +72,25 @@ function initSearchClock() {
   for (const radio of refs.radios) {
     radio.addEventListener('change', () => {
       const qdr = radio.value;
-      // URLSearchParamsはコロンを%3Aにエンコードしてしまうため手動でtbsを構築
+      // URLSearchParams はコロンを %3A にエンコードしてしまうため手動で tbs を構築。
+      // 既存 tbs から qdr セグメントだけ除去し、画像サイズ (isz) / ソート (sbd) などの
+      // ユーザー指定フィルタは保持する。
       const url = new URL(window.location.href);
+      const existingTbs = url.searchParams.get(TBS_PARAM_KEY);
       url.searchParams.delete(TBS_PARAM_KEY);
       let dest = url.toString();
-      if (qdr) {
-        dest += (dest.includes('?') ? '&' : '?') + `${TBS_PARAM_KEY}=${QDR_PREFIX}${qdr}`;
+
+      const otherSegments = existingTbs
+        ? existingTbs.split(',').filter((s) => !s.startsWith(QDR_PREFIX))
+        : [];
+      const newSegments = qdr ? [`${QDR_PREFIX}${qdr}`, ...otherSegments] : otherSegments;
+      if (newSegments.length > 0) {
+        dest += (dest.includes('?') ? '&' : '?') + `${TBS_PARAM_KEY}=${newSegments.join(',')}`;
       }
+
       // storage.qdr を更新しておく：
       //   ON モードなら declarativeNetRequest ルールが再構築される
-      //   OFF モードなら background はルールを作らないが、storage の値は次の content.js 起動時にクリアされる
+      //   OFF モードなら background はルールを作らないが、storage の値は表示同期に使われる
       chrome.runtime.sendMessage({ type: 'updateQdr', qdr }, () => {
         void chrome.runtime.lastError; // SW 再起動時などのエラーは無視して遷移優先
         window.location.href = dest;
