@@ -1,9 +1,12 @@
 // SearchClock — Google検索の期間指定を固定化するサービスワーカー
 // declarativeNetRequestを使って検索前にURLを書き換える
+// アイコンクリックで Google を新タブで開き、バッジで現在の qdr を表示する
 
 importScripts('../shared/presets.js');
 
 const GOOGLE_DOMAINS = [
+  // NOTE: manifest.json の content_scripts.matches / host_permissions と必ず同期すること。
+  // 片側欠落でドメインが部分機能不全になる。CLAUDE.md「制約事項」節も同時更新。
   'www.google.com',
   'www.google.co.jp',
   'www.google.co.uk',
@@ -20,27 +23,50 @@ const GOOGLE_DOMAINS = [
 const REDIRECT_RULE_ID = 1;
 const SKIP_RULE_ID = 2;
 
-// onMessage 経由で updateRules を実行した直後は onChanged が二重発火するため、
-// 1回だけスキップするフラグ（SW 再起動時は false にリセットされる＝安全な側）
-let suppressNextOnChanged = false;
+// バッジ色
+//   ON: 紫アクセント（CSS の --accent ライト値と意図的に同一）
+//   OFF: 灰（once モードの「動いてはいるが控えめ」を示す）
+const BADGE_BG = '#6B4FB3';
+const BADGE_BG_OFF = '#9b948b';
 
-async function updateRules(qdr) {
+// 現在 declarativeNetRequest に適用中の状態（onMessage と onChanged の二重起動を冪等性で吸収するため）
+// SW 再起動時は null にリセットされる → 次回呼び出しで必ず updateRules が走る安全側
+let appliedQdr = null;
+let appliedKeepSetting = null;
+
+// updateRules を Promise チェーンで直列化（並行実行による appliedQdr 汚染を防止）
+// onMessage / onChanged / initRules すべてここを通すこと
+let rulesQueue = Promise.resolve();
+function enqueueUpdateRules(qdr, keepSetting) {
+  rulesQueue = rulesQueue
+    .catch(() => {}) // 前段の失敗で後続を止めない
+    .then(() => updateRules(qdr, keepSetting));
+  return rulesQueue;
+}
+
+// 「期間を維持」がOFFのときは、保存済み qdr に関わらずルールを作らない。
+// → 検索フォーム経由のリクエストには tbs を付与せず自然に「期間指定なし」になる。
+// チップ選択時の URL は content.js が手動で tbs を付与するので、その回限りは効く。
+async function updateRules(qdr, keepSetting) {
+  const effectiveQdr = keepSetting ? qdr : '';
+
   // remove と add を単一呼び出しにまとめてルール空白期間をなくす
   await chrome.declarativeNetRequest.updateDynamicRules({
     removeRuleIds: [REDIRECT_RULE_ID, SKIP_RULE_ID],
-    addRules: qdr ? [
-      // 既にtbsパラメータがあるURLはスキップ（content.jsが直接設定した値を尊重）
+    addRules: effectiveQdr ? [
+      // qdr 形式の tbs を持つ URL のみ skip（content.js が手動付与した URL の二重変換を防ぐ）。
+      // tbs=isz:l のような qdr 以外の値はマッチさせず、REDIRECT_RULE で qdr を上書き付与する。
       {
         id: SKIP_RULE_ID,
         priority: 2,
         action: { type: 'allow' },
         condition: {
-          regexFilter: '.*[?&]tbs=.*',
+          regexFilter: '.*[?&]tbs=[^&]*qdr:.*',
           requestDomains: GOOGLE_DOMAINS,
           resourceTypes: ['main_frame'],
         },
       },
-      // tbsがないURLに期間指定パラメータを追加
+      // tbs に qdr が含まれない URL に期間指定パラメータを追加
       {
         id: REDIRECT_RULE_ID,
         priority: 1,
@@ -50,7 +76,7 @@ async function updateRules(qdr) {
             transform: {
               queryTransform: {
                 addOrReplaceParams: [
-                  { key: 'tbs', value: `qdr:${qdr}`, replaceOnly: false },
+                  { key: TBS_PARAM_KEY, value: `${QDR_PREFIX}${effectiveQdr}`, replaceOnly: false },
                 ],
               },
             },
@@ -64,29 +90,87 @@ async function updateRules(qdr) {
       },
     ] : [],
   });
+
+  appliedQdr = qdr;
+  appliedKeepSetting = keepSetting;
+
+  await refreshBadge(qdr, keepSetting);
+}
+
+// バッジ + ツールチップを更新
+//   keepSetting=ON + qdr あり: 紫背景で qdr ラベル（"1y" 等）を表示
+//   keepSetting=ON + qdr なし: 紫背景で "·"（モード可視化）
+//   keepSetting=OFF: 灰背景で "·"（once モードを示す控えめインジケータ）
+async function refreshBadge(qdr, keepSetting) {
+  try {
+    const onWithQdr = keepSetting && qdr;
+    const enLabel = QDR_EN_LABELS[qdr] || qdr;
+    const jpLabel = QDR_LABELS[qdr] || qdr;
+
+    const text = onWithQdr ? enLabel : '·';
+    const color = keepSetting ? BADGE_BG : BADGE_BG_OFF;
+    const title = onWithQdr
+      ? `SearchClock — 現在: ${jpLabel}（維持中）`
+      : keepSetting
+        ? 'SearchClock — 維持モード(期間指定なし)'
+        : 'SearchClock — 一回限りモード(検索ごとに自動オフ)';
+
+    // 3 つの chrome.action API は相互独立なので並列実行（直列だと 3 RTT、並列で 1 RTT）
+    await Promise.all([
+      chrome.action.setBadgeBackgroundColor({ color }),
+      chrome.action.setBadgeText({ text }),
+      chrome.action.setTitle({ title }),
+    ]);
+  } catch (err) {
+    // バッジ更新失敗は機能本体に影響しないので警告のみで続行
+    console.warn('[SearchClock] バッジ更新失敗:', err?.message ?? err);
+  }
+}
+
+// 現在のストレージから qdr / keepSetting を取得して正規化
+async function readSettings() {
+  const { qdr, keepSetting } = await chrome.storage.sync.get(DEFAULT_SETTINGS);
+  return {
+    qdr: VALID_QDR_VALUES.has(qdr) ? qdr : '',
+    keepSetting: !!keepSetting,
+  };
 }
 
 // 初期化（インストール/更新/ブラウザ起動の共通処理）
 async function initRules() {
-  const { qdr } = await chrome.storage.sync.get({ qdr: '' });
-  // 起動時は保存済み値を検証（破損していたらオフにフォールバック）
-  const safeQdr = VALID_QDR_VALUES.has(qdr) ? qdr : '';
-  await updateRules(safeQdr);
+  const { qdr, keepSetting } = await readSettings();
+  await enqueueUpdateRules(qdr, keepSetting);
 }
 
 chrome.runtime.onInstalled.addListener(initRules);
 chrome.runtime.onStartup.addListener(initRules);
 
+// 拡張機能アイコンクリック → Google を新タブで開く（popup を廃止したため）
+// NOTE: manifest.json に default_popup を追加すると onClicked は発火しなくなる Chrome 仕様
+chrome.action.onClicked.addListener(() => {
+  chrome.tabs.create({ url: 'https://www.google.com/' }).catch((err) => {
+    console.warn('[SearchClock] タブ作成失敗:', err?.message ?? err);
+  });
+});
+
 chrome.storage.onChanged.addListener(async (changes, area) => {
-  if (area !== 'sync' || !changes.qdr) return;
-  if (suppressNextOnChanged) {
-    // onMessage ハンドラが既に updateRules を走らせた直後の二重起動
-    suppressNextOnChanged = false;
-    return;
+  // onChanged の async ハンドラは uncaught rejection で SW クラッシュを招くため try/catch で包む
+  try {
+    if (area !== 'sync') return;
+    if (!changes.qdr && !changes.keepSetting) return;
+
+    const { qdr, keepSetting } = await readSettings();
+
+    // 冪等チェック: onMessage 経由で既に updateRules 済みの状態と同じならスキップ
+    // （SW 再起動時は appliedQdr=null なので必ず実行される安全側）
+    if (qdr === appliedQdr && keepSetting === appliedKeepSetting) {
+      return;
+    }
+
+    await enqueueUpdateRules(qdr, keepSetting);
+  } catch (err) {
+    console.warn('[SearchClock] onChanged ルール更新エラー:', err?.message ?? err);
   }
-  const newVal = changes.qdr.newValue;
-  if (!VALID_QDR_VALUES.has(newVal)) return;
-  await updateRules(newVal);
 });
 
 // content.jsからのメッセージでルール更新 → 完了後に応答（ナビゲーション前にルール確定）
@@ -103,13 +187,16 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
   (async () => {
     try {
-      suppressNextOnChanged = true;
+      // keepSetting は触らない（content.js は qdr のみ更新する）
+      const { keepSetting } = await readSettings();
+      // updateRules を先に実行して appliedQdr を確定 → その後 storage.set。
+      // この順序により storage.set 完了で発火する onChanged が冪等チェックでスキップされる。
+      await enqueueUpdateRules(msg.qdr, keepSetting);
       await chrome.storage.sync.set({ qdr: msg.qdr });
-      await updateRules(msg.qdr);
     } catch (err) {
-      suppressNextOnChanged = false;
-      console.warn('[SearchClock] ルール更新エラー:', err);
+      console.warn('[SearchClock] ルール更新エラー:', err?.message ?? err);
     }
+    // ルール更新失敗時もナビゲーション優先（次の読み込みで再適用される設計）
     sendResponse({ done: true });
   })();
   return true; // 非同期レスポンス

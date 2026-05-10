@@ -1,0 +1,18 @@
+# Dependabot — 依存の自動更新で脆弱性検知を促進
+# 拡張機能本体には node_modules を含めない（zip 対象外）ため、
+# 影響範囲はビルドステップ（generate-icons / generate-screenshots / publish workflow）に限定される。
+version: 2
+updates:
+  # npm 依存（puppeteer / sharp / http-server / chrome-webstore-upload-cli）
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+
+  # GitHub Actions（actions/checkout / actions/setup-node の SHA pin 自動更新）
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
