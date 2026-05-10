@@ -66,7 +66,11 @@ async function updateRules(qdr, keepSetting) {
         priority: 3,
         action: { type: 'allow' },
         condition: {
-          regexFilter: '[?&]tbs=[^&]*qdr:',
+          // declarativeNetRequest の regexFilter は **生の (URL エンコード済み) URL** に対して
+          // 評価されるため、`qdr:` リテラルだけでなく `qdr%3A` (コロンを percent-encoded した形式) も
+          // 受理する。共有 URL や URLSearchParams で生成されたリンクで encoded 形式が来た時に
+          // MERGE_RULE が誤って既存 qdr を非qdr と判定して上書きするのを防ぐ。
+          regexFilter: '[?&]tbs=[^&]*qdr(?::|%3[Aa])',
           requestDomains: GOOGLE_DOMAINS,
           resourceTypes: ['main_frame'],
         },
