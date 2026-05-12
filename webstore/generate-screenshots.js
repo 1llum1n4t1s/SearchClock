@@ -76,6 +76,10 @@ async function generateScreenshot(browser, htmlPath, outputPath, width, height) 
   } catch (error) {
     console.error(`❌ エラー: ${htmlPath} -> ${outputPath}`);
     console.error(error);
+    // generate-icons.js と同じく「1つでも失敗したら exit 1」を維持するため再 throw。
+    // catch で握りつぶすと Promise.all が resolved 扱いになり、壊れた画像のまま
+    // 「✨ すべての画像生成が完了しました！」と偽の成功を返してしまう。
+    throw error;
   } finally {
     await page.close();
   }

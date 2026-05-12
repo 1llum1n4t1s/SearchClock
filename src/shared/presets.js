@@ -41,6 +41,13 @@ const DEFAULT_SETTINGS = {
 const TBS_PARAM_KEY = 'tbs';
 const QDR_PREFIX = 'qdr:';
 
+// テーマアクセントカラー（ライト用）。
+// 参照箇所:
+//   - background.js の BADGE_BG（拡張アイコンのバッジ背景）
+//   - content.js の THEME_LIGHT --accent（注入パネルのアクセント）
+// 値変更時に 2 箇所がズレないよう、ここを唯一の真実の源とする。
+const ACCENT_COLOR = '#6B4FB3';
+
 // tbs パラメータから qdr セグメントを抽出。Google の tbs は複合形式
 // （"qdr:y,sbd:1" / "isz:l,qdr:y" など）を取りうるので , 区切りで qdr のみ拾う。
 const QDR_SEGMENT_RE = new RegExp(`(?:^|,)${QDR_PREFIX}([a-zA-Z0-9]+)(?:,|$)`);
@@ -50,13 +57,33 @@ function extractQdrFromTbs(tbs) {
   return m ? m[1] : null;
 }
 
-// qdr → "No. 03" 形式のインデックス文字列を O(1) で返す Map ルックアップ
+// qdr → 2 桁ゼロパディング済みインデックス文字列（"00"〜"10"）を O(1) で返す
 const QDR_INDEX_LABELS = Object.fromEntries(
   PRESETS.map((p, i) => [p.value, String(i).padStart(2, '0')]),
 );
 
 // qdr の PRESETS 内インデックスを 2 桁ゼロパディング文字列で返す（"01", "00", "—"）
-// editorial 風の "No. 03" 表示用
+// editorial 風の "No." プレフィックスは呼び出し側（content.js）で連結する
 function refPresetIndex(qdr) {
   return QDR_INDEX_LABELS[qdr || ''] ?? '—';
+}
+
+// Node.js テスト環境用の export。
+// ブラウザ (拡張機能) では `module` が undefined なので無視される。
+// content.js / background.js は importScripts や content_scripts の連結で読み込むためここに依存しない。
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    PRESETS,
+    QDR_LABELS,
+    QDR_EN_LABELS,
+    VALID_QDR_VALUES,
+    DEFAULT_SETTINGS,
+    TBS_PARAM_KEY,
+    QDR_PREFIX,
+    ACCENT_COLOR,
+    QDR_SEGMENT_RE,
+    QDR_INDEX_LABELS,
+    extractQdrFromTbs,
+    refPresetIndex,
+  };
 }

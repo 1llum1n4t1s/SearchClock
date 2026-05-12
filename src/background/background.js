@@ -25,9 +25,9 @@ const SKIP_RULE_ID = 2;    // 既に qdr を含む tbs はそのまま通す
 const MERGE_RULE_ID = 3;   // tbs 有り & qdr 無し: 既存セグメント保持して qdr を先頭に挿入
 
 // バッジ色
-//   ON: 紫アクセント（CSS の --accent ライト値と意図的に同一）
+//   ON: 紫アクセント（presets.js の ACCENT_COLOR を共有、CSS --accent ライト値と一致）
 //   OFF: 灰（once モードの「動いてはいるが控えめ」を示す）
-const BADGE_BG = '#6B4FB3';
+const BADGE_BG = ACCENT_COLOR;
 const BADGE_BG_OFF = '#9b948b';
 
 // 現在 declarativeNetRequest に適用中の状態（onMessage と onChanged の二重起動を冪等性で吸収するため）
@@ -36,13 +36,24 @@ let appliedQdr = null;
 let appliedKeepSetting = null;
 
 // updateRules を Promise チェーンで直列化（並行実行による appliedQdr 汚染を防止）
-// onMessage / onChanged / initRules すべてここを通すこと
+// onMessage / onChanged / initRules すべてここを通すこと。
+//
+// 重要: qdr / keepSetting は **キュー実行時点で storage から再読込** する。
+//      enqueue 時点と実行時点の値ズレ（連打中に keepSetting が変わる等）を消すため。
+//      qdrOverride を指定するのは onMessage のみ（storage.set 前に DNR 確定したいケース）。
 let rulesQueue = Promise.resolve();
-function enqueueUpdateRules(qdr, keepSetting) {
-  rulesQueue = rulesQueue
+function enqueueUpdateRules(qdrOverride) {
+  const next = rulesQueue
     .catch(() => {}) // 前段の失敗で後続を止めない
-    .then(() => updateRules(qdr, keepSetting));
-  return rulesQueue;
+    .then(async () => {
+      const settings = await readSettings();
+      const qdr = qdrOverride !== undefined ? qdrOverride : settings.qdr;
+      await updateRules(qdr, settings.keepSetting);
+    });
+  // rulesQueue 自体は常に resolved に保ち、Promise チェーン参照が無限に伸びるのを防ぐ。
+  // 戻り値 `next` は「今 enqueue したこの呼び出しの完了」を正しく返す。
+  rulesQueue = next.catch(() => {});
+  return next;
 }
 
 // 「期間を維持」がOFFのときは、保存済み qdr に関わらずルールを作らない。
@@ -55,6 +66,11 @@ function enqueueUpdateRules(qdr, keepSetting) {
 //                                  (例 tbs=isz:l → tbs=qdr:y,isz:l)
 //   ADD   (priority 1, redirect): tbs なし → addOrReplaceParams で qdr=Y を新規追加
 async function updateRules(qdr, keepSetting) {
+  // 冪等チェック: 既に同状態なら DNR を触らず即帰る。
+  // onMessage 経由で更新後に発火する onChanged の二重実行や、SW 起動直後の重複 init を吸収する。
+  // SW 再起動時は appliedQdr=null なので必ず通り、安全側に倒れる。
+  if (qdr === appliedQdr && keepSetting === appliedKeepSetting) return;
+
   const effectiveQdr = keepSetting ? qdr : '';
 
   // remove と add を単一呼び出しにまとめてルール空白期間をなくす
@@ -70,14 +86,19 @@ async function updateRules(qdr, keepSetting) {
           // 評価されるため、`qdr:` リテラルだけでなく `qdr%3A` (コロンを percent-encoded した形式) も
           // 受理する。共有 URL や URLSearchParams で生成されたリンクで encoded 形式が来た時に
           // MERGE_RULE が誤って既存 qdr を非qdr と判定して上書きするのを防ぐ。
-          regexFilter: '[?&]tbs=[^&]*qdr(?::|%3[Aa])',
+          //
+          // `/search` パス制約: Maps (`/maps?tbs=lrf:...`)、Shopping (`/search?tbm=shop&tbs=p_ord:...`
+          // は /search なので可)、Images など他の Google サービスへ波及しないよう、
+          // クエリは `/search?` 直後に限定する。ADD_RULE 側の urlFilter:'/search' と一貫させる狙い。
+          regexFilter: '^https?://[^/]+/search\\?[^#]*[?&]tbs=[^&]*qdr(?::|%3[Aa])',
           requestDomains: GOOGLE_DOMAINS,
           resourceTypes: ['main_frame'],
         },
       },
       // 既存 tbs に qdr が含まれない場合 → 既存セグメントを capture group で保持しつつ
-      // qdr を先頭に挿入。\1 = "?" or "&" + 前部、\2 = 既存 tbs 値、\3 = 残りクエリ。
+      // qdr を先頭に挿入。\1 = URL 先頭〜 "?" or "&"、\2 = 既存 tbs 値、\3 = 残りクエリ。
       // 画像サイズ (isz)、ソート (sbd) などのユーザー指定フィルタが消えないようにするのが目的。
+      // `/search` パス制約は SKIP_RULE と同じ理由で必須（Maps の `tbs=lrf:...` 等に発火させない）。
       {
         id: MERGE_RULE_ID,
         priority: 2,
@@ -88,7 +109,7 @@ async function updateRules(qdr, keepSetting) {
           },
         },
         condition: {
-          regexFilter: '^(.*[?&])tbs=([^&]+)(.*)$',
+          regexFilter: '^(https?://[^/]+/search\\?[^#]*[?&])tbs=([^&]+)(.*)$',
           requestDomains: GOOGLE_DOMAINS,
           resourceTypes: ['main_frame'],
         },
@@ -118,6 +139,8 @@ async function updateRules(qdr, keepSetting) {
     ] : [],
   });
 
+  // updateDynamicRules 失敗時は throw され、ここに到達しないため appliedQdr は更新されない。
+  // → 次回 onChanged で冪等チェックが必ず失敗し、自動的に再試行される（暗黙のリトライ経路）。
   appliedQdr = qdr;
   appliedKeepSetting = keepSetting;
 
@@ -164,9 +187,9 @@ async function readSettings() {
 }
 
 // 初期化（インストール/更新/ブラウザ起動の共通処理）
-async function initRules() {
-  const { qdr, keepSetting } = await readSettings();
-  await enqueueUpdateRules(qdr, keepSetting);
+// readSettings はキュー内で実行されるのでここでは呼ばない（race 回避）
+function initRules() {
+  return enqueueUpdateRules();
 }
 
 chrome.runtime.onInstalled.addListener(initRules);
@@ -185,16 +208,8 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
   try {
     if (area !== 'sync') return;
     if (!changes.qdr && !changes.keepSetting) return;
-
-    const { qdr, keepSetting } = await readSettings();
-
-    // 冪等チェック: onMessage 経由で既に updateRules 済みの状態と同じならスキップ
-    // （SW 再起動時は appliedQdr=null なので必ず実行される安全側）
-    if (qdr === appliedQdr && keepSetting === appliedKeepSetting) {
-      return;
-    }
-
-    await enqueueUpdateRules(qdr, keepSetting);
+    // 冪等チェックは updateRules 冒頭で実施。readSettings もキュー内で走るので race なし。
+    await enqueueUpdateRules();
   } catch (err) {
     console.warn('[SearchClock] onChanged ルール更新エラー:', err?.message ?? err);
   }
@@ -214,11 +229,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
   (async () => {
     try {
-      // keepSetting は触らない（content.js は qdr のみ更新する）
-      const { keepSetting } = await readSettings();
+      // qdr を上書き指定。keepSetting はキュー内 readSettings で最新値を読む（race 回避）。
       // updateRules を先に実行して appliedQdr を確定 → その後 storage.set。
       // この順序により storage.set 完了で発火する onChanged が冪等チェックでスキップされる。
-      await enqueueUpdateRules(msg.qdr, keepSetting);
+      await enqueueUpdateRules(msg.qdr);
       await chrome.storage.sync.set({ qdr: msg.qdr });
     } catch (err) {
       console.warn('[SearchClock] ルール更新エラー:', err?.message ?? err);

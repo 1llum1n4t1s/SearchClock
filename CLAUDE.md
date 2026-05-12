@@ -30,7 +30,7 @@ powershell -ExecutionPolicy Bypass -File zip.ps1   # Windows
 ## アーキテクチャ
 
 - **manifest.json** — MV3拡張機能定義。権限は `declarativeNetRequest` + `storage`。**ポップアップなし**（`default_popup` 未指定）。アイコンクリックは `chrome.action.onClicked` で background が処理（Google を新タブで開く）。
-- **src/shared/presets.js** — プリセット定義の単一ソース。`PRESETS`（`label` / `shortLabel` / `en` / `value`）/ `QDR_LABELS` / `QDR_EN_LABELS` / `VALID_QDR_VALUES` / `KEEP_SETTING_DEFAULT` / `DEFAULT_SETTINGS` / `QDR_INDEX_LABELS` / `refPresetIndex()` / `TBS_PARAM_KEY` / `QDR_PREFIX` を公開。background / content すべてから共有される。
+- **src/shared/presets.js** — プリセット定義の単一ソース。`PRESETS`（`label` / `shortLabel` / `en` / `value`）/ `QDR_LABELS` / `QDR_EN_LABELS` / `VALID_QDR_VALUES` / `DEFAULT_SETTINGS` / `QDR_INDEX_LABELS` / `refPresetIndex()` / `extractQdrFromTbs()` / `TBS_PARAM_KEY` / `QDR_PREFIX` を公開。background / content すべてから共有される。
 - **src/background/background.js** — サービスワーカー。`declarativeNetRequest`の動的ルールを管理。remove+add を単一 `updateDynamicRules` で実行（ルール空白期間なし）。**`keepSetting === false` のときは常にルール無し**（OFFモードでは検索フォーム経由のリクエストに tbs を付与しない）。`onMessage` で sender.id 検証 + qdr ホワイトリスト検証。`onChanged` ハンドラは try/catch で包んで SW クラッシュ防止。**`appliedQdr` / `appliedKeepSetting` の冪等チェック**で onMessage と onChanged の二重起動を吸収（旧 `suppressNextOnChanged` フラグ廃止）。`chrome.action.onClicked` で Google を新タブで開く + `setBadgeText` で qdr バッジ表示 + `setTitle` でツールチップ。SKIP_RULE の regexFilter は `tbs=` ではなく `tbs=...qdr:...` に絞って qdr 以外の tbs（画像サイズ等）で誤動作させない。
 - **src/content/content.js** — Google検索ページの`#center_col`先頭にインライン設定パネルを注入（Shadow DOM使用、DOM API で組み立て、**フォントは system font + Hiragino/Noto/Segoe UI fallback のみ**）。**状態表示・ラジオ選択は URL の tbs パラメータを真実として算出**（storage.qdr ではなく）。`keepSetting === false` のとき起動時に storage.qdr を空へリセット。プリセット選択で即再検索。Google検索ツールの期間変更を検出して拡張機能をオフにする（後勝ち連携、tbs 内 qdr セグメントだけを比較）。ライト/ダークテーマを自動検出。MutationObserver は `centerCol` 限定で監視、クリーンアップ時に click リスナー + pageshow リスナーも解除。ヘッダ右端の switch で `keepSetting` をトグル。**bfcache 復元時は `pageshow` で URL 再評価して cachedCurrentUrl を更新**。
 - **icons/icon.svg** — マスターアイコン（時計+虫眼鏡）。`scripts/generate-icons.js`で全サイズ生成。
@@ -79,5 +79,6 @@ Googleの`tbs`クエリパラメータで期間を制御:
 - `declarativeNetRequest`のリダイレクトには`host_permissions`が必要
 - 対応ドメイン: google.com, google.co.jp, google.co.uk, google.ca, google.com.au, google.de, google.fr, google.es, google.it, google.co.kr, google.com.br
   - **追加・削除時は `manifest.json` の 2 箇所（`content_scripts.matches` / `host_permissions`）と `src/background/background.js` の `GOOGLE_DOMAINS` 配列を必ず同時に更新すること**
+  - 同期は `npm run check-domains`（または `npm run build`）で自動検証される。3 箇所のいずれかにズレがあると exit 1 で失敗するので、CI でも検知できる。
 - テーマ検出はbodyの背景色RGB値で判定（brightness < 128でダーク）
 - フォントは system font fallback のみ使用（IBM Plex Sans JP など web_accessible_resources でのフォント公開は廃止済み・フィンガープリント窓口を閉じるため）

@@ -45,7 +45,15 @@ jobs:
       - name: 依存インストール
         # npm ci で package-lock.json の integrity を検証してインストール
         # chrome-webstore-upload-cli も devDependencies に固定済み
+        # PUPPETEER_SKIP_DOWNLOAD: CI ではスクショ生成しないので Chromium バイナリ (数百MB) は不要
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: 'true'
         run: npm ci
+
+      - name: Google ドメインリストの 3 箇所同期チェック
+        # manifest.json (matches / host_permissions) と background.js (GOOGLE_DOMAINS) のズレを検知。
+        # 片側欠落は部分機能不全 (DNR は動くが content script 未注入 等) を生む。
+        run: node scripts/check-domains.js
 
       - name: アイコン生成
         run: node scripts/generate-icons.js

@@ -4,11 +4,6 @@
 // TBS_PARAM_KEY / QDR_PREFIX / extractQdrFromTbs は src/shared/presets.js から注入される
 // （同一 content_scripts 内で共有、manifest.json の js 配列で先に読み込まれる）
 
-// DOM上の既存要素で多重注入を防止（content scriptのletフラグはナビゲーションでリセットされるため不可）
-if (!document.getElementById('searchclock-root')) {
-  initSearchClock();
-}
-
 function isDarkTheme() {
   const bg = window.getComputedStyle(document.body).backgroundColor;
   const match = bg.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
@@ -26,9 +21,42 @@ function urlQdr(url) {
   return qdr && VALID_QDR_VALUES.has(qdr) ? qdr : '';
 }
 
+// SW へ qdr 更新を送ってからナビゲーション。
+// SW タイムアウト・起動失敗等でコールバック未到達でもページがフリーズしないよう、
+// 3 秒で強制遷移するフォールバックを持つ。二重ナビゲーションを防ぐため navigated フラグで一度きり。
+function sendQdrAndNavigate(qdr, dest) {
+  let navigated = false;
+  const go = () => {
+    if (navigated) return;
+    navigated = true;
+    window.location.href = dest;
+  };
+  const fallback = setTimeout(go, 3000);
+  chrome.runtime.sendMessage({ type: 'updateQdr', qdr }, () => {
+    clearTimeout(fallback);
+    void chrome.runtime.lastError; // SW 再起動時などのエラーは無視して遷移優先
+    go();
+  });
+}
+
+// Google が将来 #center_col を改名・廃止しても無音で全停止しないよう、複数候補を順に試す。
+// 先頭ほど現在の Google 検索 UI の主要構造に近い。すべて見つからなければ警告して退出。
+function findInjectionTarget() {
+  return (
+    document.getElementById('center_col') ||
+    document.querySelector('#rcnt main') ||
+    document.querySelector('main[role="main"]') ||
+    document.querySelector('#rcnt') ||
+    null
+  );
+}
+
 function initSearchClock() {
-  const centerCol = document.getElementById('center_col');
-  if (!centerCol) return;
+  const centerCol = findInjectionTarget();
+  if (!centerCol) {
+    console.warn('[SearchClock] 注入先 (#center_col / fallback) が見つかりません。Google の DOM 変更の可能性があります。');
+    return;
+  }
 
   // 現在URL: 通常ナビゲーションでは content script ごと作り直されるが、
   // bfcache 復元時は同一インスタンスが再利用されるため pageshow で更新可能なよう let
@@ -91,10 +119,7 @@ function initSearchClock() {
       // storage.qdr を更新しておく：
       //   ON モードなら declarativeNetRequest ルールが再構築される
       //   OFF モードなら background はルールを作らないが、storage の値は表示同期に使われる
-      chrome.runtime.sendMessage({ type: 'updateQdr', qdr }, () => {
-        void chrome.runtime.lastError; // SW 再起動時などのエラーは無視して遷移優先
-        window.location.href = dest;
-      });
+      sendQdrAndNavigate(qdr, dest);
     });
   }
 
@@ -103,17 +128,30 @@ function initSearchClock() {
   // 「1年で絞り込み中に維持を ON にしたら 1年が引き継がれる」直感に合わせた挙動。
   // ON→OFF 切替時は keepSetting だけ変える（storage.qdr は次の updateQdr メッセージまで残るが、
   // background が keepSetting=false の間は DNR ルールを作らないので無害）。
-  refs.keepInput.addEventListener('change', async () => {
+  // storage.sync は MAX_WRITE_OPERATIONS_PER_MINUTE=120 のクォータがあるため、
+  // 連打を 500ms debounce で吸収する（誤クリック連発でクォータ枯渇させない安全策）。
+  let keepInputTimer = null;
+  refs.keepInput.addEventListener('change', () => {
     const next = !!refs.keepInput.checked;
-    const updates = next
-      ? { keepSetting: true, qdr: currentQdr }
-      : { keepSetting: false };
-    try {
-      await chrome.storage.sync.set(updates);
-    } catch (err) {
-      console.warn('[SearchClock] keepSetting 保存失敗:', err?.message ?? err);
-      refs.keepInput.checked = !next; // UI ロールバック
+    // updateUI で disabled にしているが、キーボード操作や race を念のため二重防御。
+    // qdr='' での「維持 ON」は紫バッジだけ点いて実際は固定されない偽状態を作るので拒否。
+    if (next && !currentQdr) {
+      refs.keepInput.checked = false;
+      return;
     }
+    clearTimeout(keepInputTimer);
+    keepInputTimer = setTimeout(async () => {
+      const finalNext = !!refs.keepInput.checked; // debounce 中に再変更された最終状態を採用
+      const updates = finalNext
+        ? { keepSetting: true, qdr: currentQdr }
+        : { keepSetting: false };
+      try {
+        await chrome.storage.sync.set(updates);
+      } catch (err) {
+        console.warn('[SearchClock] keepSetting 保存失敗:', err?.message ?? err);
+        refs.keepInput.checked = !finalNext; // UI ロールバック
+      }
+    }, 500);
   });
 
   // 外部からの変更を監視
@@ -162,10 +200,8 @@ function initSearchClock() {
       }
 
       e.preventDefault();
-      chrome.runtime.sendMessage({ type: 'updateQdr', qdr: '' }, () => {
-        void chrome.runtime.lastError;
-        window.location.href = href;
-      });
+      // linkUrl.href は new URL() で正規化・hostname 検証済みの値を使う（href 直渡しより防御的）
+      sendQdrAndNavigate('', linkUrl.href);
     } catch (err) {
       console.warn('[SearchClock] リンク処理エラー:', err instanceof Error ? err.message : err);
     }
@@ -194,8 +230,13 @@ function initSearchClock() {
   //   - root が centerCol から取り除かれるケース
   //   - centerCol 自体が差し替えられる SPA 的遷移
   // の両方を捕捉。subtree: true は Google ページの mutation 頻度が高すぎて重いので使わない。
+  // 親と子の両方を observe しているため同一フレームで 2 回 callback されうる。
+  // cleaned フラグで二重実行を防止（removeListener/disconnect 自体は冪等だが contains() の DOM 探索が無駄）。
+  let cleaned = false;
   const observer = new MutationObserver(() => {
+    if (cleaned) return;
     if (!document.body.contains(root)) {
+      cleaned = true;
       chrome.storage.onChanged.removeListener(storageListener);
       document.removeEventListener('click', clickHandler, true);
       window.removeEventListener('pageshow', pageshowHandler);
@@ -220,10 +261,15 @@ function updateUI(refs, qdr, keepSetting) {
   refs.issueNo.textContent = refPresetIndex(qdr);
   refs.panel.classList.toggle('is-active', !!qdr);
 
+  // 期間未設定で維持 ON にすると background は qdr='' のため DNR ルール無しで動き、
+  // バッジだけ「維持中」になる偽の維持状態が成立してしまう。先にプリセット選択を促すため disable。
+  refs.keepInput.disabled = !qdr;
   refs.keepInput.checked = !!keepSetting;
-  refs.keepWrap.title = keepSetting
-    ? '期間を維持中：次の検索でも設定が適用されます'
-    : '一回限り：次の検索で自動的にオフに戻ります';
+  refs.keepWrap.title = !qdr
+    ? '先に期間を選んでください（未設定では維持できません）'
+    : keepSetting
+      ? '期間を維持中：次の検索でも設定が適用されます'
+      : '一回限り：次の検索で自動的にオフに戻ります';
   // モード表示: ON=keep / OFF=once（常時表示で「壊れた」誤認を防ぐ）
   const mode = keepSetting ? 'keep' : 'once';
   refs.keepWrap.dataset.mode = mode;
@@ -427,7 +473,7 @@ const THEME_LIGHT = `
       --rule: #e4dff0;
       --rule-soft: #efebf6;
       --rule-strong: #cdc5e0;
-      --accent: #6B4FB3;
+      --accent: ${ACCENT_COLOR};
       --accent-deep: #4D3590;
       --accent-soft: #ede9f7;
     }
@@ -660,16 +706,16 @@ const STYLES_COMMON = `
       outline-offset: 2px;
     }
 
-    /* ── Presets (1 行 × 11 列) ──────────── */
+    /* ── Presets (1 行 × N 列、N = PRESETS.length) ──────────── */
     .sc-presets {
       display: grid;
-      grid-template-columns: repeat(11, minmax(0, 1fr));
+      grid-template-columns: repeat(${PRESETS.length}, minmax(0, 1fr));
       gap: 4px;
       padding: 5px 10px 7px;
     }
-    /* 狭幅では 6 列にフォールバック */
+    /* 狭幅では半数列にフォールバック */
     @media (max-width: 640px) {
-      .sc-presets { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+      .sc-presets { grid-template-columns: repeat(${Math.ceil(PRESETS.length / 2)}, minmax(0, 1fr)); }
     }
 
     .sc-preset {
@@ -753,4 +799,11 @@ const STYLES_LIGHT = THEME_LIGHT + STYLES_COMMON;
 
 function getStyles(dark) {
   return dark ? STYLES_DARK : STYLES_LIGHT;
+}
+
+// 全 const/function 宣言の初期化後に注入を起動（const は巻き上げされず TDZ になるため、
+// 冒頭で initSearchClock を呼ぶと STYLES_DARK/LIGHT 参照が ReferenceError になる）。
+// DOM上の既存要素で多重注入を防止（content scriptのletフラグはナビゲーションでリセットされるため不可）
+if (!document.getElementById('searchclock-root')) {
+  initSearchClock();
 }
