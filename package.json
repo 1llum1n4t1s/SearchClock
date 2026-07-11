@@ -14,7 +14,7 @@
     "chrome-webstore-upload-cli": "3.5.0",
     "http-server": "^14.1.1",
     "puppeteer": "^24.43.1",
-    "sharp": "^0.34.5"
+    "sharp": "^0.35.3"
   },
   "keywords": [
     "chrome-extension",
