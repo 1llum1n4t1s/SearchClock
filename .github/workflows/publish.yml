@@ -44,7 +44,7 @@ jobs:
 
       - name: Node セットアップ
         # SHA pin (actions/setup-node v5.0.0) でサプライチェーン攻撃を防ぐ
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           # Node 20 は 2026-04 で EOL のため 22 (maintenance LTS) を使用
           node-version: '22'
