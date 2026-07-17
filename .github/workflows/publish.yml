@@ -36,19 +36,32 @@ jobs:
           fi
           echo "✅ ブランチ名と manifest バージョン一致: $expected"
 
+      - name: pnpm セットアップ
+        # SHA pin (pnpm/action-setup v4) でサプライチェーン攻撃を防ぐ
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1  # v4
+        with:
+          version: 11
+
       - name: Node セットアップ
         # SHA pin (actions/setup-node v5.0.0) でサプライチェーン攻撃を防ぐ
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
         with:
-          node-version: '20'
+          # Node 20 は 2026-04 で EOL のため 22 (maintenance LTS) を使用
+          node-version: '22'
+          cache: 'pnpm'
 
       - name: 依存インストール
-        # npm ci で package-lock.json の integrity を検証してインストール
+        # pnpm install --frozen-lockfile で pnpm-lock.yaml の integrity を検証してインストール
         # chrome-webstore-upload-cli も devDependencies に固定済み
         # PUPPETEER_SKIP_DOWNLOAD: CI ではスクショ生成しないので Chromium バイナリ (数百MB) は不要
         env:
           PUPPETEER_SKIP_DOWNLOAD: 'true'
-        run: npm ci
+        run: pnpm install --frozen-lockfile
+
+      - name: ユニットテスト
+        # 公開前ゲート: presets.js の純粋関数テスト（node:test 内蔵、依存ゼロ）。
+        # 失敗したら以降のパッケージング・アップロードを実行しない。
+        run: pnpm test
 
       - name: Google ドメインリストの 3 箇所同期チェック
         # manifest.json (matches / host_permissions) と background.js (GOOGLE_DOMAINS) のズレを検知。
@@ -66,18 +79,15 @@ jobs:
 
       - name: Chrome Web Store にアップロード & 公開
         env:
-          CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
-          CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
-          CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
-          CWS_EXTENSION_ID: ${{ secrets.CWS_EXTENSION_ID }}
+          CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+          REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+          EXTENSION_ID: ${{ secrets.CWS_EXTENSION_ID }}
+          PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}
         run: |
-          # devDependencies に固定した chrome-webstore-upload-cli を npm exec で起動
+          # devDependencies に固定した chrome-webstore-upload-cli v4 を pnpm exec で起動
           # （npx --yes による毎回ネットワーク取得 + 認証情報漏洩リスクを回避）
-          npm exec --no-install -- chrome-webstore-upload upload \
-            --source search-clock.zip \
-            --extension-id "$CWS_EXTENSION_ID" \
-            --client-id "$CWS_CLIENT_ID" \
-            --client-secret "$CWS_CLIENT_SECRET" \
-            --refresh-token "$CWS_REFRESH_TOKEN" \
-            --auto-publish
+          # v4 は --client-id 等の CLI フラグを廃止し環境変数必須に変更。
+          # コマンド(upload/publish)を省略すると upload→publish が自動で連続実行される。
+          pnpm exec chrome-webstore-upload --source search-clock.zip
           echo "🎉 Chrome Web Store への公開リクエストを送信したよ〜"

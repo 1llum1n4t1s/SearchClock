@@ -97,10 +97,12 @@ async function main() {
   });
 
   try {
-    await Promise.all(HTML_CONFIGS.map(config => {
+    // puppeteer 25 では同一 browser 内の複数ページ並列 captureScreenshot がデッドロックし
+    // protocolTimeout まで固まる（v24 まで動いていた Promise.all 並列は使えない）。直列で実行する。
+    for (const config of HTML_CONFIGS) {
       const outputPath = path.join(OUTPUT_DIR, config.output);
-      return generateScreenshot(browser, config.input, outputPath, config.width, config.height);
-    }));
+      await generateScreenshot(browser, config.input, outputPath, config.width, config.height);
+    }
   } finally {
     await browser.close();
   }

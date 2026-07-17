@@ -1,6 +1,6 @@
 {
   "name": "search-clock",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "type": "commonjs",
   "description": "Chrome extension to fix Google search time period filters",
   "scripts": {
@@ -8,11 +8,10 @@
     "check-domains": "node scripts/check-domains.js",
     "generate-icons": "node scripts/generate-icons.js",
     "generate-screenshots": "node webstore/generate-screenshots.js",
-    "build": "npm run check-domains && npm run generate-icons && npm run generate-screenshots"
+    "build": "pnpm run check-domains && pnpm run generate-icons && pnpm run generate-screenshots"
   },
   "devDependencies": {
     "chrome-webstore-upload-cli": "4.0.1",
-    "http-server": "^14.1.1",
     "puppeteer": "^25.3.0",
     "sharp": "^0.35.3"
   },

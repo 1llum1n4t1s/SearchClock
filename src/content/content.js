@@ -6,8 +6,12 @@
 
 function isDarkTheme() {
   const bg = window.getComputedStyle(document.body).backgroundColor;
-  const match = bg.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+  // rgb()/rgba()・カンマ/空白区切りの両形式を許容（ブラウザの serialization 揺れで
+  // rgba(32, 33, 36, 1) 等が返るとダーク背景でもライト判定になる取りこぼし対策）
+  const match = bg.match(/rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)(?:\s*[,/]\s*([\d.]+))?\s*\)/);
   if (!match) return false;
+  // 完全透明は背景色不明のためライト扱い（rgba(0,0,0,0) を「黒」と誤検出しない）
+  if (match[4] !== undefined && parseFloat(match[4]) === 0) return false;
   return (parseInt(match[1]) + parseInt(match[2]) + parseInt(match[3])) / 3 < 128;
 }
 
@@ -23,7 +27,9 @@ function urlQdr(url) {
 
 // SW へ qdr 更新を送ってからナビゲーション。
 // SW タイムアウト・起動失敗等でコールバック未到達でもページがフリーズしないよう、
-// 3 秒で強制遷移するフォールバックを持つ。二重ナビゲーションを防ぐため navigated フラグで一度きり。
+// 強制遷移するフォールバックを持つ。二重ナビゲーションを防ぐため navigated フラグで一度きり。
+const NAV_FALLBACK_MS = 3000;
+
 function sendQdrAndNavigate(qdr, dest) {
   let navigated = false;
   const go = () => {
@@ -31,7 +37,7 @@ function sendQdrAndNavigate(qdr, dest) {
     navigated = true;
     window.location.href = dest;
   };
-  const fallback = setTimeout(go, 3000);
+  const fallback = setTimeout(go, NAV_FALLBACK_MS);
   chrome.runtime.sendMessage({ type: 'updateQdr', qdr }, () => {
     clearTimeout(fallback);
     void chrome.runtime.lastError; // SW 再起動時などのエラーは無視して遷移優先
@@ -51,10 +57,33 @@ function findInjectionTarget() {
   );
 }
 
+// document_idle 時点で注入先が無いのは「遅延レンダリング中」か「画像検索など注入先を持たない
+// 別レイアウトの /search ページ」。前者に備えて一定時間だけ出現を監視し、見つかり次第注入する。
+// 期限まで現れなければ後者と判断して console.info で記録して退出する
+// （console.warn 以上は chrome://extensions のエラー一覧に収集されノイズになるため info に留める。
+//  DOM 変更の調査時はページの DevTools コンソールで info レベルを表示すれば確認できる）。
+const INJECTION_TARGET_WAIT_MS = 10000;
+
+function waitForInjectionTarget() {
+  const observer = new MutationObserver(() => {
+    if (!findInjectionTarget()) return;
+    observer.disconnect();
+    clearTimeout(timer);
+    if (!document.getElementById('searchclock-root')) {
+      initSearchClock();
+    }
+  });
+  const timer = setTimeout(() => {
+    observer.disconnect();
+    console.info('[SearchClock] 注入先 (#center_col / fallback) が見つかりません。別レイアウトの検索ページか、Google の DOM 変更の可能性があります。');
+  }, INJECTION_TARGET_WAIT_MS);
+  observer.observe(document.documentElement, { childList: true, subtree: true });
+}
+
 function initSearchClock() {
   const centerCol = findInjectionTarget();
   if (!centerCol) {
-    console.warn('[SearchClock] 注入先 (#center_col / fallback) が見つかりません。Google の DOM 変更の可能性があります。');
+    waitForInjectionTarget();
     return;
   }
 
@@ -129,7 +158,8 @@ function initSearchClock() {
   // ON→OFF 切替時は keepSetting だけ変える（storage.qdr は次の updateQdr メッセージまで残るが、
   // background が keepSetting=false の間は DNR ルールを作らないので無害）。
   // storage.sync は MAX_WRITE_OPERATIONS_PER_MINUTE=120 のクォータがあるため、
-  // 連打を 500ms debounce で吸収する（誤クリック連発でクォータ枯渇させない安全策）。
+  // 連打を debounce で吸収する（誤クリック連発でクォータ枯渇させない安全策）。
+  const KEEP_SAVE_DEBOUNCE_MS = 500;
   let keepInputTimer = null;
   refs.keepInput.addEventListener('change', () => {
     const next = !!refs.keepInput.checked;
@@ -151,7 +181,7 @@ function initSearchClock() {
         console.warn('[SearchClock] keepSetting 保存失敗:', err?.message ?? err);
         refs.keepInput.checked = !finalNext; // UI ロールバック
       }
-    }, 500);
+    }, KEEP_SAVE_DEBOUNCE_MS);
   });
 
   // 外部からの変更を監視
@@ -272,7 +302,6 @@ function updateUI(refs, qdr, keepSetting) {
       : '一回限り：次の検索で自動的にオフに戻ります';
   // モード表示: ON=keep / OFF=once（常時表示で「壊れた」誤認を防ぐ）
   const mode = keepSetting ? 'keep' : 'once';
-  refs.keepWrap.dataset.mode = mode;
   refs.modeChip.textContent = keepSetting ? '維持中' : '1回限り';
   refs.modeChip.dataset.mode = mode;
 }

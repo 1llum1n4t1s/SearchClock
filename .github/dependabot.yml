@@ -3,7 +3,7 @@
 # 影響範囲はビルドステップ（generate-icons / generate-screenshots / publish workflow）に限定される。
 version: 2
 updates:
-  # npm 依存（puppeteer / sharp / http-server / chrome-webstore-upload-cli）
+  # npm 依存（puppeteer / sharp / chrome-webstore-upload-cli）
   - package-ecosystem: npm
     directory: "/"
     schedule:
