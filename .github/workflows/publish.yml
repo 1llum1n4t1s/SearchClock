@@ -14,8 +14,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: リポジトリをチェックアウト
-        # SHA pin (actions/checkout v5.0.1) でサプライチェーン攻撃を防ぐ
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        # SHA pin (actions/checkout v7.0.1) でサプライチェーン攻撃を防ぐ
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: バージョンを取得
         id: version
@@ -37,13 +37,13 @@ jobs:
           echo "✅ ブランチ名と manifest バージョン一致: $expected"
 
       - name: pnpm セットアップ
-        # SHA pin (pnpm/action-setup v4) でサプライチェーン攻撃を防ぐ
+        # SHA pin (pnpm/action-setup v6.0.9) でサプライチェーン攻撃を防ぐ
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271  # v6.0.9
         with:
           version: 11
 
       - name: Node セットアップ
-        # SHA pin (actions/setup-node v5.0.0) でサプライチェーン攻撃を防ぐ
+        # SHA pin (actions/setup-node v7.0.0) でサプライチェーン攻撃を防ぐ
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           # Node 20 は 2026-04 で EOL のため 22 (maintenance LTS) を使用
