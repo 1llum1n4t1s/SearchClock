@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="SearchClock は Google 検索の期間指定を固定化する Chrome 拡張機能です。検索結果ページのパネルからワンクリックで期間を絞り込めます。">
+  <meta name="theme-color" content="#f8f4ee">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="ja_JP">
+  <meta property="og:title" content="SearchClock — 検索結果を、いつも新しい方から。">
+  <meta property="og:description" content="SearchClock は Google 検索の期間指定を固定化する Chrome 拡張機能です。検索結果ページのパネルからワンクリックで期間を絞り込めます。">
+  <meta property="og:url" content="https://searchclock.kagayoi.com/">
+  <title>SearchClock — 検索結果を、いつも新しい方から。</title>
+  <link rel="canonical" href="https://searchclock.kagayoi.com/">
+  <link rel="stylesheet" href="styles.css">
+  <script src="script.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">本文へ移動</a>
+
+  <header class="site-header">
+    <a class="brand" href="#top" aria-label="SearchClock ホーム">
+      <svg class="brand-mark" viewBox="0 0 42 42" aria-hidden="true">
+        <path d="M21 5a16 16 0 1 0 0 32 16 16 0 0 0 0-32Zm0 6v11l8 5" />
+      </svg>
+      <span>SearchClock</span>
+    </a>
+    <nav class="site-nav" aria-label="メインナビゲーション">
+      <a href="#why">2 つのモード</a>
+      <a href="#how">使い方</a>
+      <a href="#features">機能</a>
+      <a href="https://github.com/1llum1n4t1s/SearchClock">GitHub</a>
+    </nav>
+    <a class="header-link" href="#install">インストール <span aria-hidden="true">↓</span></a>
+  </header>
+
+  <main id="main">
+    <section class="hero" id="top">
+      <div class="hero-copy reveal">
+        <p class="eyebrow"><span>Search date filter</span><span>Chrome / MV3</span></p>
+        <h1>古い情報に、<br><em>埋もれない。</em></h1>
+        <p class="hero-lead">Google 検索の期間指定を、検索結果ページの上のパネルからワンクリック。「期間を維持」なら次の検索にも自動適用、「一回限り」なら戻し忘れを防げます。</p>
+        <div class="hero-actions">
+          <a class="button button-primary" href="https://chromewebstore.google.com/detail/hleikjaipiaabalgkkbaapgbiiehkkbc">Chrome に追加</a>
+          <a class="text-link" href="https://github.com/1llum1n4t1s/SearchClock">ソースを見る <span aria-hidden="true">↗</span></a>
+        </div>
+        <dl class="hero-facts" aria-label="製品概要">
+          <div><dt>プリセット</dt><dd>3 時間 〜 3 年の 10 段階</dd></div>
+          <div><dt>モード</dt><dd>期間を維持 / 一回限り</dd></div>
+        </dl>
+      </div>
+
+      <div class="compare-card reveal">
+        <p>Date range mode</p>
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr><th scope="col">項目</th><th scope="col">一回限り（既定）</th><th scope="col">期間を維持</th></tr>
+            </thead>
+            <tbody>
+              <tr><th scope="row">選んだ期間</th><td class="cell-before">その回限り</td><td class="cell-after">次の検索にも適用</td></tr>
+              <tr><th scope="row">新しい検索</th><td class="cell-before">自動でオフへ戻る</td><td class="cell-after">設定を保持</td></tr>
+              <tr><th scope="row">戻し忘れ</th><td class="cell-before">起きない</td><td class="cell-after">バッジで現在値を表示</td></tr>
+              <tr><th scope="row">切り替え</th><td class="cell-before">ヘッダ右端のスイッチ</td><td class="cell-after">ヘッダ右端のスイッチ</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="metric-ribbon" aria-label="主な機能">
+      <span>3 時間</span>
+      <span>1 日</span>
+      <span>1 週間</span>
+      <span>1 ヶ月</span>
+      <span>1 年</span>
+    </section>
+
+    <section class="problem section-shell reveal" id="why">
+      <div class="section-intro">
+        <p class="section-code">TWO MODES</p>
+        <h2>固定したい日と、<br>その場だけの日。</h2>
+      </div>
+      <div class="spec-panel">
+        <p>SearchClock の動作モード</p>
+        <dl class="spec-grid">
+          <div><dt>期間を維持（ON）</dt><dd>設定した期間が次の検索でも自動的に適用される</dd></div>
+          <div><dt>一回限り（OFF・既定）</dt><dd>選んだ期間はその回限り。新しい検索で自動的にオフへ戻る</dd></div>
+          <div><dt>プリセット</dt><dd>3 時間 / 12 時間 / 1 日 / 3 日 / 1 週間 / 1 ヶ月 / 3 ヶ月 / 半年 / 1 年 / 3 年</dd></div>
+          <div><dt>切り替え</dt><dd>パネルのヘッダ右端のスイッチ</dd></div>
+          <div><dt>現在値の表示</dt><dd>拡張機能アイコンのバッジに適用中の期間を表示</dd></div>
+        </dl>
+        <p class="spec-note">既定を「一回限り」にしているのは、設定の戻し忘れで意図しない期間のまま検索してしまう事故を防ぐためです。</p>
+      </div>
+    </section>
+
+    <section class="process section-shell" id="how">
+      <div class="process-step reveal">
+        <span class="step-index">01</span>
+        <h3>Google で検索する</h3>
+        <p>検索結果ページの上部に、期間選択パネルが自動で表示されます。</p>
+      </div>
+      <div class="process-step reveal">
+        <span class="step-index">02</span>
+        <h3>期間をクリック</h3>
+        <p>10 段階のプリセットから選ぶと、その場で再検索されます。「オフ」で通常検索に戻せます。</p>
+      </div>
+      <div class="process-step reveal">
+        <span class="step-index">03</span>
+        <h3>モードを決める</h3>
+        <p>毎回同じ期間で調べたいときは「期間を維持」を ON にします。</p>
+      </div>
+    </section>
+
+    <section class="feature section-shell" id="features">
+      <div class="feature-copy reveal">
+        <p class="section-code">FEATURES</p>
+        <h2>検索窓に、<br>戻らなくていい。</h2>
+        <p>Google のツールメニューを開いて期間を選び直す手順を、結果ページ上のチップ 1 クリックに置き換えます。</p>
+        <ul class="check-list">
+          <li>検索結果ページ上の期間選択パネル</li>
+          <li>10 段階のプリセットとオフ</li>
+          <li>アイコンのバッジで現在の期間を表示</li>
+        </ul>
+      </div>
+
+      <div class="fact-panel reveal">
+        <p>対象と処理の一覧</p>
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr><th scope="col">項目</th><th scope="col">設定</th><th scope="col">状態</th></tr>
+            </thead>
+            <tbody>
+              <tr><th scope="row">期間</th><td>過去 1 年</td><td>ACTIVE</td></tr>
+              <tr><th scope="row">モード</th><td>一回限り</td><td>ONCE</td></tr>
+              <tr><th scope="row">次の検索</th><td>自動でオフ</td><td>RESET</td></tr>
+              <tr><th scope="row">バッジ</th><td>1y</td><td>SHOWN</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="fact-note">
+          <span>DEFAULT</span>
+          <code>mode: once</code>
+          <strong>safe default</strong>
+          <b>既定は一回限り。戻し忘れによる誤った期間での検索を防ぐ</b>
+        </p>
+      </div>
+    </section>
+
+    <section class="principles section-shell reveal">
+      <p class="section-code">DESIGN PRINCIPLES</p>
+      <div class="principle-grid">
+        <article><span>SAFE</span><h3>戻し忘れを防ぐ</h3><p>既定を一回限りにして、意図しない期間で検索し続ける事故を避けます。</p></article>
+        <article><span>VISIBLE</span><h3>今の設定が見える</h3><p>適用中の期間をバッジに出し、状態を隠しません。</p></article>
+        <article><span>LOCAL</span><h3>検索語を送らない</h3><p>処理は端末内で完結し、検索内容を外部へ送信しません。</p></article>
+      </div>
+    </section>
+
+    <section class="install section-shell" id="install">
+      <div class="install-copy reveal">
+        <p class="section-code">INSTALL</p>
+        <h2>調べ物の鮮度を、<br>自分で決める。</h2>
+        <p>Chrome / Edge / Brave などの Chromium 系ブラウザに対応。Google 検索で動作します。MIT License。</p>
+      </div>
+      <div class="install-panel reveal">
+        <code><span>TARGET</span> google.com/search</code>
+        <a class="button " href="https://chromewebstore.google.com/detail/hleikjaipiaabalgkkbaapgbiiehkkbc">Chrome に追加 <span aria-hidden="true">↗</span></a>
+        <a class="text-link install-text-link" href="https://github.com/1llum1n4t1s/SearchClock">ソースを見る <span aria-hidden="true">↗</span></a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <a class="brand" href="/">
+      <svg class="brand-mark" viewBox="0 0 42 42" aria-hidden="true"><path d="M21 5a16 16 0 1 0 0 32 16 16 0 0 0 0-32Zm0 6v11l8 5" /></svg>
+      <span>SearchClock</span>
+    </a>
+    <nav class="footer-links" aria-label="フッターナビゲーション">
+      <a href="https://github.com/1llum1n4t1s/SearchClock">GitHub</a>
+      <a href="https://chromewebstore.google.com/detail/hleikjaipiaabalgkkbaapgbiiehkkbc">Chrome ウェブストア</a>
+      <a href="/privacy">プライバシー</a>
+    </nav>
+    <p>MIT License · 2026 Kagayoi</p>
+  </footer>
+</body>
+</html>

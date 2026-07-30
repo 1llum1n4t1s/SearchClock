@@ -5,3 +5,6 @@ webstore/images/
 icons/icon-*.png
 temp-build/
 *.zip
+
+# wrangler のローカル状態キャッシュ (web/ のデプロイ時に生成される)
+web/.wrangler/
