@@ -28,9 +28,14 @@ function urlQdr(url) {
 // SW へ qdr 更新を送ってからナビゲーション。
 // SW タイムアウト・起動失敗等でコールバック未到達でもページがフリーズしないよう、
 // 強制遷移するフォールバックを持つ。二重ナビゲーションを防ぐため navigated フラグで一度きり。
+//
+// disableKeep=true は後勝ち（Google 検索ツールで期間変更）専用。README / ストア掲載文の
+// 「Google 検索ツールで期間を変更すると拡張機能は自動オフ」を満たすため keepSetting も落とす。
+// storage 書き込みは SW 側で qdr と同一 set にまとめる：ここで直接 storage.set すると
+// 遷移でページが破棄され書き込みが取りこぼされうるため、応答を待てる SW 経由にする。
 const NAV_FALLBACK_MS = 3000;
 
-function sendQdrAndNavigate(qdr, dest) {
+function sendQdrAndNavigate(qdr, dest, disableKeep) {
   let navigated = false;
   const go = () => {
     if (navigated) return;
@@ -38,7 +43,9 @@ function sendQdrAndNavigate(qdr, dest) {
     window.location.href = dest;
   };
   const fallback = setTimeout(go, NAV_FALLBACK_MS);
-  chrome.runtime.sendMessage({ type: 'updateQdr', qdr }, () => {
+  const msg = { type: 'updateQdr', qdr };
+  if (disableKeep) msg.keepSetting = false;
+  chrome.runtime.sendMessage(msg, () => {
     clearTimeout(fallback);
     void chrome.runtime.lastError; // SW 再起動時などのエラーは無視して遷移優先
     go();
@@ -134,6 +141,11 @@ function initSearchClock() {
       // ユーザー指定フィルタは保持する。
       const url = new URL(window.location.href);
       const existingTbs = url.searchParams.get(TBS_PARAM_KEY);
+      // url.toString() は fragment まで含めて直列化するため、hash を退避せずに末尾へ
+      // tbs を連結すると `...#frag&tbs=qdr:y` となり tbs がクエリではなく fragment 扱いになる。
+      // 先に hash を外してクエリを組み立て、最後に戻す。
+      const hash = url.hash;
+      url.hash = '';
       url.searchParams.delete(TBS_PARAM_KEY);
       let dest = url.toString();
 
@@ -144,6 +156,7 @@ function initSearchClock() {
       if (newSegments.length > 0) {
         dest += (dest.includes('?') ? '&' : '?') + `${TBS_PARAM_KEY}=${newSegments.join(',')}`;
       }
+      dest += hash;
 
       // storage.qdr を更新しておく：
       //   ON モードなら declarativeNetRequest ルールが再構築される
@@ -231,7 +244,10 @@ function initSearchClock() {
 
       e.preventDefault();
       // linkUrl.href は new URL() で正規化・hostname 検証済みの値を使う（href 直渡しより防御的）
-      sendQdrAndNavigate('', linkUrl.href);
+      // 第3引数 true: 後勝ちは「拡張機能を自動オフ」なので keepSetting も落とす。
+      // 落とさないと storage.qdr='' で DNR ルールが無いのにモードチップだけ「維持中」に
+      // 残り、次の検索フォーム実行で絞り込まれない偽の維持表示になる。
+      sendQdrAndNavigate('', linkUrl.href, true);
     } catch (err) {
       console.warn('[SearchClock] リンク処理エラー:', err instanceof Error ? err.message : err);
     }
@@ -293,7 +309,10 @@ function updateUI(refs, qdr, keepSetting) {
 
   // 期間未設定で維持 ON にすると background は qdr='' のため DNR ルール無しで動き、
   // バッジだけ「維持中」になる偽の維持状態が成立してしまう。先にプリセット選択を促すため disable。
-  refs.keepInput.disabled = !qdr;
+  // ただし既に維持 ON の状態（維持中に「オフ」チップを選んだ直後など）では disable しない。
+  // ON のまま操作不能にすると「維持中表示だが解除できない」袋小路になり、
+  // 別の期間を選び直すまで OFF に戻せなくなるため（ON 方向だけを change ハンドラで拒否する）。
+  refs.keepInput.disabled = !qdr && !keepSetting;
   refs.keepInput.checked = !!keepSetting;
   refs.keepWrap.title = !qdr
     ? '先に期間を選んでください（未設定では維持できません）'

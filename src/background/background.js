@@ -40,15 +40,17 @@ let appliedKeepSetting = null;
 //
 // 重要: qdr / keepSetting は **キュー実行時点で storage から再読込** する。
 //      enqueue 時点と実行時点の値ズレ（連打中に keepSetting が変わる等）を消すため。
-//      qdrOverride を指定するのは onMessage のみ（storage.set 前に DNR 確定したいケース）。
+//      qdrOverride / keepSettingOverride を指定するのは onMessage のみ
+//      （storage.set 前に DNR とバッジを確定したいケース）。
 let rulesQueue = Promise.resolve();
-function enqueueUpdateRules(qdrOverride) {
+function enqueueUpdateRules(qdrOverride, keepSettingOverride) {
   const next = rulesQueue
     .catch(() => {}) // 前段の失敗で後続を止めない
     .then(async () => {
       const settings = await readSettings();
       const qdr = qdrOverride !== undefined ? qdrOverride : settings.qdr;
-      await updateRules(qdr, settings.keepSetting);
+      const keepSetting = keepSettingOverride !== undefined ? keepSettingOverride : settings.keepSetting;
+      await updateRules(qdr, keepSetting);
     });
   // rulesQueue 自体は常に resolved に保ち、Promise チェーン参照が無限に伸びるのを防ぐ。
   // 戻り値 `next` は「今 enqueue したこの呼び出しの完了」を正しく返す。
@@ -89,8 +91,12 @@ async function updateRules(qdr, keepSetting) {
           //
           // `/search` パス制約: Maps (`/maps?tbs=lrf:...`)、Shopping (`/search?tbm=shop&tbs=p_ord:...`
           // は /search なので可)、Images など他の Google サービスへ波及しないよう、
-          // クエリは `/search?` 直後に限定する。ADD_RULE 側の urlFilter:'/search' と一貫させる狙い。
-          regexFilter: '^https?://[^/]+/search\\?[^#]*[?&]tbs=[^&]*qdr(?::|%3[Aa])',
+          // クエリは `/search?` 直後に限定する。ADD_RULE も同じ regexFilter で揃えている。
+          // `(?:[^#]*&)?` は「tbs が先頭パラメータ (/search?tbs=...)」と「2 番目以降 (&tbs=...)」の
+          // 両方を受理する。旧 `[^#]*[?&]tbs=` は `/search\?` で `?` を消費済みのため先頭 tbs に
+          // マッチせず、SKIP/MERGE が空振りして ADD_RULE が tbs 全体を置換していた。
+          // 末尾が `&` 固定なので `&atbs=` のような部分一致は従来どおり弾ける。
+          regexFilter: '^https?://[^/]+/search\\?(?:[^#]*&)?tbs=[^&]*qdr(?::|%3[Aa])',
           requestDomains: GOOGLE_DOMAINS,
           resourceTypes: ['main_frame'],
         },
@@ -109,12 +115,15 @@ async function updateRules(qdr, keepSetting) {
           },
         },
         condition: {
-          regexFilter: '^(https?://[^/]+/search\\?[^#]*[?&])tbs=([^&]+)(.*)$',
+          regexFilter: '^(https?://[^/]+/search\\?(?:[^#]*&)?)tbs=([^&]+)(.*)$',
           requestDomains: GOOGLE_DOMAINS,
           resourceTypes: ['main_frame'],
         },
       },
-      // tbs パラメータ自体が無い URL に qdr を追加
+      // tbs パラメータ自体が無い URL に qdr を追加。
+      // condition は SKIP/MERGE と同じ `^https?://[^/]+/search\?` パス制約を使う。
+      // urlFilter:'/search' はアンカー無しの **部分一致** なので `/maps/search/<query>` や
+      // `/travel/flights/search` にも発火し、Web 検索以外の URL へ tbs を付けてしまっていた。
       {
         id: ADD_RULE_ID,
         priority: 1,
@@ -131,7 +140,7 @@ async function updateRules(qdr, keepSetting) {
           },
         },
         condition: {
-          urlFilter: '/search',
+          regexFilter: '^https?://[^/]+/search\\?',
           requestDomains: GOOGLE_DOMAINS,
           resourceTypes: ['main_frame'],
         },
@@ -227,13 +236,19 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return false;
   }
 
+  // 後勝ち（Google 検索ツールで期間変更）だけが keepSetting:false を明示して来る。
+  // それ以外の値は無視し、keepSetting はキュー内 readSettings の最新値に委ねる（race 回避）。
+  const keepOverride = msg.keepSetting === false ? false : undefined;
+
   (async () => {
     try {
-      // qdr を上書き指定。keepSetting はキュー内 readSettings で最新値を読む（race 回避）。
-      // updateRules を先に実行して appliedQdr を確定 → その後 storage.set。
+      // qdr（と後勝ち時の keepSetting）を上書き指定。
+      // updateRules を先に実行して appliedQdr / appliedKeepSetting を確定 → その後 storage.set。
       // この順序により storage.set 完了で発火する onChanged が冪等チェックでスキップされる。
-      await enqueueUpdateRules(msg.qdr);
-      await chrome.storage.sync.set({ qdr: msg.qdr });
+      await enqueueUpdateRules(msg.qdr, keepOverride);
+      const updates = { qdr: msg.qdr };
+      if (keepOverride === false) updates.keepSetting = false;
+      await chrome.storage.sync.set(updates);
     } catch (err) {
       console.warn('[SearchClock] ルール更新エラー:', err?.message ?? err);
     }
