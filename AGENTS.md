@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code when working in this repository.
+このファイルは、このリポジトリで作業するエージェント向けの規約を示します。
 
 ## プロジェクト概要
 
@@ -23,29 +23,28 @@ pnpm run build               # check-domains → generate-icons → generate-scr
 
 Linter は未導入。Chrome で `chrome://extensions` → 「パッケージ化されていない拡張機能を読み込む」で動作確認する。
 
+## 必須検証
+
+コード、依存、生成設定を変更した後は、次をすべて実行する。
+
+```bash
+pnpm install --frozen-lockfile
+pnpm test
+pnpm run build
+git diff --check
+```
+
 ## パッケージング
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File zip.ps1   # Windows
+pwsh -NoProfile -File zip.ps1                      # Windows
 ./zip.sh                                            # macOS/Linux
 ```
 `manifest.json`, `src/`, `icons/` を `search-clock.zip` に含める。`node_modules`, `webstore/`, `docs/`, `scripts/` は含まない。
 
-## アーキテクチャ
+## 設計の正本
 
-- **manifest.json** — MV3拡張機能定義。権限は `declarativeNetRequest` + `storage`。**ポップアップなし**（`default_popup` 未指定）。アイコンクリックは `chrome.action.onClicked` で background が処理（Google を新タブで開く）。
-- **src/shared/presets.js** — プリセット定義の単一ソース。`PRESETS`（`label` / `shortLabel` / `en` / `value`）/ `QDR_LABELS` / `QDR_EN_LABELS` / `VALID_QDR_VALUES` / `DEFAULT_SETTINGS` / `QDR_INDEX_LABELS` / `refPresetIndex()` / `extractQdrFromTbs()` / `TBS_PARAM_KEY` / `QDR_PREFIX` / `ACCENT_COLOR` を公開。background / content / テスト すべてから共有される。**末尾に `module.exports` ブロックあり**（Node テストからの require 用、ブラウザでは `module` 未定義のため無視される）。
-- **src/shared/presets.test.js** — `node:test` 組み込みランナーによる純粋関数ユニットテスト（依存ゼロ）。`extractQdrFromTbs` / `refPresetIndex` / `VALID_QDR_VALUES` / `DEFAULT_SETTINGS` / `ACCENT_COLOR` / `PRESETS` の 13 件をカバー。zip 対象外。
-- **src/background/background.js** — サービスワーカー。`declarativeNetRequest`の動的ルールを管理。remove+add を単一 `updateDynamicRules` で実行（ルール空白期間なし）。**`keepSetting === false` のときは常にルール無し**（OFFモードでは検索フォーム経由のリクエストに tbs を付与しない）。`onMessage` で sender.id 検証 + qdr ホワイトリスト検証。`onChanged` ハンドラは try/catch で包んで SW クラッシュ防止。**冪等チェックは `updateRules` 冒頭** (`qdr === appliedQdr && keepSetting === appliedKeepSetting` ならスキップ) で onMessage / onChanged / initRules すべてを吸収する。SW 再起動時は `appliedQdr=null` で必ず通る安全側。**`enqueueUpdateRules(qdrOverride?)`** は内部で `readSettings()` を呼び、enqueue 時点ではなくキュー実行時点の最新 storage 値を使う（race 回避）。戻り値 `next` は「この呼び出しの完了」を正しく返し、`rulesQueue` は常に resolved を保つ（チェーン参照の蓄積防止）。**SKIP_RULE / MERGE_RULE の regexFilter には `^https?://[^/]+/search\?` パス制約あり**（Google Maps / Shopping / Images / News などへの誤発火を防止）。SKIP_RULE は qdr 以外の tbs（画像サイズ等）で誤動作しないよう `tbs=...qdr:...` に絞り、percent-encoded な `qdr%3A` も受理する。`chrome.action.onClicked` で Google を新タブで開く + `setBadgeText` で qdr バッジ表示 + `setTitle` でツールチップ。`BADGE_BG = ACCENT_COLOR`（presets.js から参照、ライトテーマ `--accent` と一致）。
-- **src/content/content.js** — Google検索ページの設定パネル注入（Shadow DOM closed mode、DOM API で組み立て、**フォントは system font + Hiragino/Noto/Segoe UI fallback のみ**）。**注入先は `findInjectionTarget()`** で `#center_col → #rcnt main → main[role="main"] → #rcnt` の順にフォールバック（Google の DOM 変更で全停止しない耐性）。見つからない場合は `console.warn` を残して退出。**状態表示・ラジオ選択は URL の tbs パラメータを真実として算出**（storage.qdr ではなく）。プリセット選択 → **`sendQdrAndNavigate(qdr, dest)` ヘルパー**で SW にメッセージ送信 + 3 秒タイムアウト救済 + `navigated` フラグで二重ナビ防止。Google検索ツールの期間変更を検出して拡張機能をオフにする（後勝ち連携、tbs 内 qdr セグメントだけを比較、`linkUrl.href` を使う防御的代入）。**期間未設定時は keepInput を `disabled` にし、change ハンドラに二重防御 guard あり**（紫バッジだけ点く偽維持状態を防止）。**keepInput の change は 500ms debounce** で storage.sync の MAX_WRITE_OPERATIONS_PER_MINUTE=120 クォータ枯渇を防ぐ。ライト/ダークテーマを自動検出。MutationObserver は `centerCol` + `parentNode` の childList 限定で監視、`cleaned` フラグで二重実行ガード、クリーンアップ時に click / pageshow リスナーも解除。**bfcache 復元時は `pageshow` で URL 再評価して cachedCurrentUrl を更新**。CSS の grid 列数は `${PRESETS.length}` / `${Math.ceil(PRESETS.length / 2)}` でプリセット件数に連動。
-- **icons/icon.svg** — マスターアイコン（時計+虫眼鏡）。`scripts/generate-icons.js`で全サイズ生成。
-- **scripts/generate-icons.js** — sharp で SVG → PNG 変換。1つでも失敗すれば exit 1。
-- **scripts/check-domains.js** — `manifest.json` の `content_scripts.matches` + `host_permissions` と `background.js` の `GOOGLE_DOMAINS` が一致しているか検証。**background.js の `GOOGLE_DOMAINS` を真実の源として、不足/余剰があれば exit 1**。`pnpm run build` と CI の publish workflow に組み込み済み。
-- **webstore/*.html** — ストア掲載画像のHTMLテンプレート。`webstore/generate-screenshots.js`（Puppeteer）でPNGに変換。失敗時は catch で `throw` するため `Promise.all` が reject → `process.exit(1)`（壊れた画像で偽の成功を返さない）。
-- **webstore/store-listing.txt** — Chrome Web Store申請用のコピペ用テキスト。
-- **docs/privacy-policy.md** — Chrome Web Store 申請に必要なプライバシーポリシー。
-- **.github/workflows/publish.yml** — `release/**` ブランチ push で Chrome Web Store に自動公開。**Actions は SHA pin、`chrome-webstore-upload-cli` は `package.json` で固定 + `pnpm exec` で起動**（サプライチェーン攻撃防止）。`PUPPETEER_SKIP_DOWNLOAD=true` で CI 不要な Chromium バイナリのダウンロードをスキップ。**`node scripts/check-domains.js` ステップでドメイン同期検証**。Secrets: `CWS_CLIENT_ID` / `CWS_CLIENT_SECRET` / `CWS_REFRESH_TOKEN` / `CWS_EXTENSION_ID` 必須。
-- **.github/dependabot.yml** — npm と github-actions の月次自動更新 PR。SHA pin の追従と依存脆弱性検知を担う。
+コンポーネントの責務、データフロー、不変条件、採用済み設計判断は [DESIGN.md](DESIGN.md) を参照する。実装の責務や境界を変更したときは、同じ変更で `DESIGN.md` も更新する。
 
 ## リリースフロー
 
