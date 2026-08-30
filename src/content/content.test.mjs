@@ -16,25 +16,26 @@ test('維持変更・未知qdr・修飾クリック・再注入の契約を保�
   await page.evaluate(() => {
     window.__settingsMessages = [];
     const storageListeners = new Set();
-    Object.defineProperty(window, 'chrome', {
-      configurable: true,
-      value: {
-        runtime: {
-          lastError: undefined,
-          sendMessage: (msg, callback) => {
-            window.__settingsMessages.push(msg);
-            callback({ done: true });
-          },
+    const chromeApi = window.chrome ?? {};
+    if (!window.chrome) {
+      Object.defineProperty(window, 'chrome', { value: chromeApi });
+    }
+    Object.assign(chromeApi, {
+      runtime: {
+        lastError: undefined,
+        sendMessage: (msg, callback) => {
+          window.__settingsMessages.push(msg);
+          callback({ done: true });
         },
-        storage: {
-          sync: {
-            get: (defaults, callback) => callback({ ...defaults, qdr: 'y', keepSetting: false }),
-            set: async () => {},
-          },
-          onChanged: {
-            addListener: (listener) => storageListeners.add(listener),
-            removeListener: (listener) => storageListeners.delete(listener),
-          },
+      },
+      storage: {
+        sync: {
+          get: (defaults, callback) => callback({ ...defaults, qdr: 'y', keepSetting: false }),
+          set: async () => {},
+        },
+        onChanged: {
+          addListener: (listener) => storageListeners.add(listener),
+          removeListener: (listener) => storageListeners.delete(listener),
         },
       },
     });
