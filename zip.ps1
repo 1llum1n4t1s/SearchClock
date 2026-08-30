@@ -10,7 +10,7 @@ if ($scriptDir) { Set-Location $scriptDir }
 
 # アイコン生成
 Write-Host "アイコンを生成中..." -ForegroundColor Yellow
-npm install --silent 2>$null
+pnpm install --frozen-lockfile --silent
 node scripts/generate-icons.js
 
 # 古いZIPファイルを削除
@@ -35,7 +35,7 @@ Copy-Item "icons" -Destination $tempDir -Recurse
 Copy-Item "src" -Destination $tempDir -Recurse
 
 # 不要なファイルを除外
-Get-ChildItem -Path $tempDir -Recurse -Include "*.DS_Store", "*.swp", "*~" | Remove-Item -Force
+Get-ChildItem -Path $tempDir -Recurse -Include "*.DS_Store", "*.swp", "*~", "*.test.js", "*.test.mjs" | Remove-Item -Force
 
 # ZIPファイルを作成
 Write-Host "ZIPファイルを作成中..." -ForegroundColor Cyan

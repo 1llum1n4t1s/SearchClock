@@ -43,7 +43,7 @@ Google検索の期間指定（`tbs=qdr:VALUE`）を固定化するChrome拡張�
 
 ```bash
 pnpm install                   # 依存関係インストール
-pnpm test                      # presets.js の純粋関数ユニットテスト (node:test、依存ゼロ)
+pnpm test                      # 共有関数、状態競合、パネル再注入の回帰テスト
 pnpm run check-domains         # manifest.json と background.js のドメインリスト同期検証
 pnpm run generate-icons        # icons/icon.svg → icons/icon-{16,48,128}.png
 pnpm run generate-screenshots  # webstore/*.html → webstore/images/*.png
@@ -57,7 +57,7 @@ powershell -ExecutionPolicy Bypass -File zip.ps1   # Windows
 ./zip.sh                                            # macOS/Linux
 ```
 
-`manifest.json`, `src/`, `icons/` を `search-clock.zip` に含めます。
+`manifest.json`, `src/`, `icons/` を `search-clock.zip` に含め、テストは除外します。
 
 ## 技術メモ
 

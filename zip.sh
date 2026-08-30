@@ -12,7 +12,7 @@ echo "既存のZIPファイルを削除しました"
 
 if [ -f scripts/generate-icons.js ]; then
   echo "アイコン生成中..."
-  npm install --silent 2>/dev/null
+  pnpm install --frozen-lockfile --silent
   node scripts/generate-icons.js
 fi
 
@@ -25,7 +25,7 @@ zip -r ./search-clock.zip \
   manifest.json \
   icons/ \
   src/ \
-  -x "*.DS_Store" "*.swp" "*~"
+  -x "*.DS_Store" "*.swp" "*~" "*.test.js" "*.test.mjs"
 
 if [ $? -eq 0 ]; then
   echo "ZIPファイルを作成しました: search-clock.zip"

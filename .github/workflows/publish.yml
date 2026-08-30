@@ -53,13 +53,13 @@ jobs:
       - name: 依存インストール
         # pnpm install --frozen-lockfile で pnpm-lock.yaml の integrity を検証してインストール
         # chrome-webstore-upload-cli も devDependencies に固定済み
-        # PUPPETEER_SKIP_DOWNLOAD: CI ではスクショ生成しないので Chromium バイナリ (数百MB) は不要
+        # browser回帰テストはrunner組み込みChromeを使うため、Puppeteer管理Chromeの取得は不要
         env:
           PUPPETEER_SKIP_DOWNLOAD: 'true'
         run: pnpm install --frozen-lockfile
 
-      - name: ユニットテスト
-        # 公開前ゲート: presets.js の純粋関数テスト（node:test 内蔵、依存ゼロ）。
+      - name: 回帰テスト
+        # 公開前ゲート: 共有関数、SW競合、runner組み込みChromeでのコンテンツUIを検証。
         # 失敗したら以降のパッケージング・アップロードを実行しない。
         run: pnpm test
 
@@ -74,7 +74,7 @@ jobs:
       - name: zip パッケージを作成
         run: |
           zip -r search-clock.zip manifest.json icons src \
-            -x "*.DS_Store" "*.swp" "*~"
+            -x "*.DS_Store" "*.swp" "*~" "*.test.js" "*.test.mjs"
           ls -lh search-clock.zip
 
       - name: Chrome Web Store にアップロード & 公開

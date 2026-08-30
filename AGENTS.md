@@ -12,7 +12,7 @@ SearchClock — Google検索の期間指定を固定化するChrome拡張機能�
 
 ```bash
 pnpm install                 # 依存関係インストール（sharp, puppeteer, chrome-webstore-upload-cli）
-pnpm test                    # presets.js の純粋関数ユニットテスト（node:test 内蔵、依存ゼロ）
+pnpm test                    # 共有関数、SW競合、コンテンツ再注入の回帰テスト
 pnpm run check-domains       # manifest.json と background.js のドメインリスト同期検証（ズレで exit 1）
 pnpm run generate-icons      # icons/icon.svg → icons/icon-{16,48,128}.png（1つでも失敗で exit 1）
 pnpm run generate-screenshots # webstore/*.html → webstore/images/*.png（Puppeteer。失敗時 throw → exit 1）
@@ -40,7 +40,7 @@ git diff --check
 pwsh -NoProfile -File zip.ps1                      # Windows
 ./zip.sh                                            # macOS/Linux
 ```
-`manifest.json`, `src/`, `icons/` を `search-clock.zip` に含める。`node_modules`, `webstore/`, `docs/`, `scripts/` は含まない。
+`manifest.json`, `src/`, `icons/` を `search-clock.zip` に含める。`src/**/*.test.*`, `node_modules`, `webstore/`, `docs/`, `scripts/` は含まない。
 
 ## 設計の正本
 
