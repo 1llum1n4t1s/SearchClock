@@ -4,7 +4,7 @@
   "type": "commonjs",
   "description": "Chrome extension to fix Google search time period filters",
   "scripts": {
-    "test": "node --test src/shared/presets.test.js",
+    "test": "node --test src/shared/presets.test.js src/background/background.test.js src/content/content.test.mjs",
     "check-domains": "node scripts/check-domains.js",
     "generate-icons": "node scripts/generate-icons.js",
     "generate-screenshots": "node webstore/generate-screenshots.js",

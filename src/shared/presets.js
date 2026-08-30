@@ -57,6 +57,15 @@ function extractQdrFromTbs(tbs) {
   return m ? m[1] : null;
 }
 
+// Google 検索ツールの期間変更か、別の検索・検索タイプへの移動かを区別する。
+// start や source など期間変更で変わり得る補助パラメータは比較せず、
+// 検索内容と検索タイプを決める q / tbm / udm だけを契約とする。
+function isSameSearchContext(currentUrl, nextUrl) {
+  return ['q', 'tbm', 'udm'].every(
+    (key) => currentUrl.searchParams.get(key) === nextUrl.searchParams.get(key),
+  );
+}
+
 // qdr → 2 桁ゼロパディング済みインデックス文字列（"00"〜"10"）を O(1) で返す
 const QDR_INDEX_LABELS = Object.fromEntries(
   PRESETS.map((p, i) => [p.value, String(i).padStart(2, '0')]),
@@ -84,6 +93,7 @@ if (typeof module !== 'undefined' && module.exports) {
     QDR_SEGMENT_RE,
     QDR_INDEX_LABELS,
     extractQdrFromTbs,
+    isSameSearchContext,
     refPresetIndex,
   };
 }

@@ -35,22 +35,21 @@ const BADGE_BG_OFF = '#9b948b';
 let appliedQdr = null;
 let appliedKeepSetting = null;
 
-// updateRules を Promise チェーンで直列化（並行実行による appliedQdr 汚染を防止）
+// 設定保存と updateRules を Promise チェーンで直列化（並行実行による状態逆転を防止）
 // onMessage / onChanged / initRules すべてここを通すこと。
 //
-// 重要: qdr / keepSetting は **キュー実行時点で storage から再読込** する。
-//      enqueue 時点と実行時点の値ズレ（連打中に keepSetting が変わる等）を消すため。
-//      qdrOverride / keepSettingOverride を指定するのは onMessage のみ
-//      （storage.set 前に DNR とバッジを確定したいケース）。
+// 重要: メッセージ由来の変更はキュー内で storage へ保存してから再読込する。
+//      DNR が失敗しても storage.onChanged が再試行経路になり、最後のメッセージが最終状態になる。
 let rulesQueue = Promise.resolve();
-function enqueueUpdateRules(qdrOverride, keepSettingOverride) {
+function enqueueUpdateRules(settingsUpdates) {
   const next = rulesQueue
     .catch(() => {}) // 前段の失敗で後続を止めない
     .then(async () => {
+      if (settingsUpdates) {
+        await chrome.storage.sync.set(settingsUpdates);
+      }
       const settings = await readSettings();
-      const qdr = qdrOverride !== undefined ? qdrOverride : settings.qdr;
-      const keepSetting = keepSettingOverride !== undefined ? keepSettingOverride : settings.keepSetting;
-      await updateRules(qdr, keepSetting);
+      await updateRules(settings.qdr, settings.keepSetting);
     });
   // rulesQueue 自体は常に resolved に保ち、Promise チェーン参照が無限に伸びるのを防ぐ。
   // 戻り値 `next` は「今 enqueue したこの呼び出しの完了」を正しく返す。
@@ -228,7 +227,9 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   // 自分の拡張機能からのメッセージのみ受理（同一ブラウザ内の別拡張機能からの送信を排除）
   if (!sender || sender.id !== chrome.runtime.id) return;
-  if (msg?.type !== 'updateQdr') return;
+  const isQdrUpdate = msg?.type === 'updateQdr';
+  const isKeepUpdate = msg?.type === 'updateKeepSetting';
+  if (!isQdrUpdate && !isKeepUpdate) return;
 
   // qdr 値のホワイトリスト検証
   if (!VALID_QDR_VALUES.has(msg.qdr)) {
@@ -236,24 +237,25 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return false;
   }
 
-  // 後勝ち（Google 検索ツールで期間変更）だけが keepSetting:false を明示して来る。
-  // それ以外の値は無視し、keepSetting はキュー内 readSettings の最新値に委ねる（race 回避）。
-  const keepOverride = msg.keepSetting === false ? false : undefined;
+  if (isKeepUpdate && typeof msg.keepSetting !== 'boolean') {
+    sendResponse({ done: false, error: 'invalid keepSetting' });
+    return false;
+  }
+
+  const updates = { qdr: msg.qdr };
+  // 後勝ちは updateQdr でも keepSetting:false を明示する。
+  if (isKeepUpdate || msg.keepSetting === false) {
+    updates.keepSetting = !!msg.keepSetting;
+  }
 
   (async () => {
     try {
-      // qdr（と後勝ち時の keepSetting）を上書き指定。
-      // updateRules を先に実行して appliedQdr / appliedKeepSetting を確定 → その後 storage.set。
-      // この順序により storage.set 完了で発火する onChanged が冪等チェックでスキップされる。
-      await enqueueUpdateRules(msg.qdr, keepOverride);
-      const updates = { qdr: msg.qdr };
-      if (keepOverride === false) updates.keepSetting = false;
-      await chrome.storage.sync.set(updates);
+      await enqueueUpdateRules(updates);
+      sendResponse({ done: true });
     } catch (err) {
       console.warn('[SearchClock] ルール更新エラー:', err?.message ?? err);
+      sendResponse({ done: false, error: 'settings update failed' });
     }
-    // ルール更新失敗時もナビゲーション優先（次の読み込みで再適用される設計）
-    sendResponse({ done: true });
   })();
   return true; // 非同期レスポンス
 });

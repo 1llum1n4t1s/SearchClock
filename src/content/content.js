@@ -1,7 +1,8 @@
 // SearchClock — Google検索ページに設定パネルを埋め込み
 // Shadow DOMでスタイルを完全に分離、Googleのライト/ダークテーマに自動対応
 // PRESETS / QDR_LABELS / VALID_QDR_VALUES / DEFAULT_SETTINGS / refPresetIndex /
-// TBS_PARAM_KEY / QDR_PREFIX / extractQdrFromTbs は src/shared/presets.js から注入される
+// TBS_PARAM_KEY / QDR_PREFIX / extractQdrFromTbs / isSameSearchContext は
+// src/shared/presets.js から注入される
 // （同一 content_scripts 内で共有、manifest.json の js 配列で先に読み込まれる）
 
 function isDarkTheme() {
@@ -16,13 +17,15 @@ function isDarkTheme() {
 }
 
 function qdrToLabel(qdr) {
-  return qdr ? (QDR_LABELS[qdr] || qdr) : '期間指定なし';
+  if (!qdr) return '期間指定なし';
+  if (qdr === 'h') return '1時間以内';
+  return QDR_LABELS[qdr] || `Google指定 (${QDR_PREFIX}${qdr})`;
 }
 
-// URL の tbs から qdr 値を抽出（不正値・存在しない場合は ''）
+// URL の tbs から表示用 qdr を抽出。プリセット外のGoogle標準値も実状態として保持する。
+// qdr が存在しない場合だけ '' を返し、保存可否は VALID_QDR_VALUES で別に判定する。
 function urlQdr(url) {
-  const qdr = extractQdrFromTbs(url.searchParams.get(TBS_PARAM_KEY));
-  return qdr && VALID_QDR_VALUES.has(qdr) ? qdr : '';
+  return extractQdrFromTbs(url.searchParams.get(TBS_PARAM_KEY)) || '';
 }
 
 // SW へ qdr 更新を送ってからナビゲーション。
@@ -34,6 +37,29 @@ function urlQdr(url) {
 // storage 書き込みは SW 側で qdr と同一 set にまとめる：ここで直接 storage.set すると
 // 遷移でページが破棄され書き込みが取りこぼされうるため、応答を待てる SW 経由にする。
 const NAV_FALLBACK_MS = 3000;
+const MESSAGE_RETRY_MS = 100;
+
+function sendSettingsMessage(msg, retries = 1) {
+  return new Promise((resolve, reject) => {
+    let attempts = 0;
+    const send = () => {
+      attempts++;
+      chrome.runtime.sendMessage(msg, (response) => {
+        const runtimeError = chrome.runtime.lastError;
+        if (!runtimeError && response?.done) {
+          resolve();
+          return;
+        }
+        if (attempts <= retries) {
+          setTimeout(send, MESSAGE_RETRY_MS);
+          return;
+        }
+        reject(new Error(response?.error || runtimeError?.message || 'settings update failed'));
+      });
+    };
+    send();
+  });
+}
 
 function sendQdrAndNavigate(qdr, dest, disableKeep) {
   let navigated = false;
@@ -45,11 +71,16 @@ function sendQdrAndNavigate(qdr, dest, disableKeep) {
   const fallback = setTimeout(go, NAV_FALLBACK_MS);
   const msg = { type: 'updateQdr', qdr };
   if (disableKeep) msg.keepSetting = false;
-  chrome.runtime.sendMessage(msg, () => {
-    clearTimeout(fallback);
-    void chrome.runtime.lastError; // SW 再起動時などのエラーは無視して遷移優先
-    go();
-  });
+  sendSettingsMessage(msg)
+    .then(() => {
+      clearTimeout(fallback);
+      go();
+    })
+    .catch((err) => {
+      // 一回限りモードは URL 自体に qdr を含むため、最終的には fallback で遷移を優先する。
+      // 維持モードの設定失敗は警告を残し、成功したと偽装しない。
+      console.warn('[SearchClock] 設定更新エラー:', err?.message ?? err);
+    });
 }
 
 // Google が将来 #center_col を改名・廃止しても無音で全停止しないよう、複数候補を順に試す。
@@ -70,20 +101,33 @@ function findInjectionTarget() {
 // （console.warn 以上は chrome://extensions のエラー一覧に収集されノイズになるため info に留める。
 //  DOM 変更の調査時はページの DevTools コンソールで info レベルを表示すれば確認できる）。
 const INJECTION_TARGET_WAIT_MS = 10000;
+let injectionWait = null;
 
 function waitForInjectionTarget() {
+  if (document.getElementById('searchclock-root') || injectionWait) return;
+  if (findInjectionTarget()) {
+    initSearchClock();
+    return;
+  }
+
+  const stopWaiting = () => {
+    if (!injectionWait) return;
+    injectionWait.observer.disconnect();
+    clearTimeout(injectionWait.timer);
+    injectionWait = null;
+  };
   const observer = new MutationObserver(() => {
     if (!findInjectionTarget()) return;
-    observer.disconnect();
-    clearTimeout(timer);
+    stopWaiting();
     if (!document.getElementById('searchclock-root')) {
       initSearchClock();
     }
   });
   const timer = setTimeout(() => {
-    observer.disconnect();
+    stopWaiting();
     console.info('[SearchClock] 注入先 (#center_col / fallback) が見つかりません。別レイアウトの検索ページか、Google の DOM 変更の可能性があります。');
   }, INJECTION_TARGET_WAIT_MS);
+  injectionWait = { observer, timer };
   observer.observe(document.documentElement, { childList: true, subtree: true });
 }
 
@@ -170,31 +214,23 @@ function initSearchClock() {
   // 「1年で絞り込み中に維持を ON にしたら 1年が引き継がれる」直感に合わせた挙動。
   // ON→OFF 切替時は keepSetting だけ変える（storage.qdr は次の updateQdr メッセージまで残るが、
   // background が keepSetting=false の間は DNR ルールを作らないので無害）。
-  // storage.sync は MAX_WRITE_OPERATIONS_PER_MINUTE=120 のクォータがあるため、
-  // 連打を debounce で吸収する（誤クリック連発でクォータ枯渇させない安全策）。
-  const KEEP_SAVE_DEBOUNCE_MS = 500;
-  let keepInputTimer = null;
-  refs.keepInput.addEventListener('change', () => {
+  // switch は離散的な change だけを発火するため、その場で保存を開始する。
+  // タイマーへ遅延すると、直後のチップ選択やページ破棄でユーザーの変更が失われる。
+  refs.keepInput.addEventListener('change', async () => {
     const next = !!refs.keepInput.checked;
     // updateUI で disabled にしているが、キーボード操作や race を念のため二重防御。
-    // qdr='' での「維持 ON」は紫バッジだけ点いて実際は固定されない偽状態を作るので拒否。
-    if (next && !currentQdr) {
+    // プリセット外 qdr は表示だけ行い、DNR へ保存できない値での維持 ON は拒否する。
+    if (next && (!currentQdr || !VALID_QDR_VALUES.has(currentQdr))) {
       refs.keepInput.checked = false;
       return;
     }
-    clearTimeout(keepInputTimer);
-    keepInputTimer = setTimeout(async () => {
-      const finalNext = !!refs.keepInput.checked; // debounce 中に再変更された最終状態を採用
-      const updates = finalNext
-        ? { keepSetting: true, qdr: currentQdr }
-        : { keepSetting: false };
-      try {
-        await chrome.storage.sync.set(updates);
-      } catch (err) {
-        console.warn('[SearchClock] keepSetting 保存失敗:', err?.message ?? err);
-        refs.keepInput.checked = !finalNext; // UI ロールバック
-      }
-    }, KEEP_SAVE_DEBOUNCE_MS);
+    const updates = { type: 'updateKeepSetting', keepSetting: next, qdr: currentQdr };
+    try {
+      await sendSettingsMessage(updates);
+    } catch (err) {
+      console.warn('[SearchClock] keepSetting 保存失敗:', err?.message ?? err);
+      refs.keepInput.checked = !next; // UI ロールバック
+    }
   });
 
   // 外部からの変更を監視
@@ -212,7 +248,6 @@ function initSearchClock() {
   // tbs 全体ではなく qdr セグメントだけを比較することで、画像サイズ等の
   // 期間外 tbs 変更（"isz:l,qdr:y" 等）での誤発動を防ぐ。
   let currentQdrParam = extractQdrFromTbs(cachedCurrentUrl.searchParams.get(TBS_PARAM_KEY));
-  let currentTbm = cachedCurrentUrl.searchParams.get('tbm');
 
   const clickHandler = (e) => {
     const link = e.target.closest('a');
@@ -226,7 +261,11 @@ function initSearchClock() {
     try {
       const linkUrl = new URL(href);
       if (linkUrl.hostname !== cachedCurrentUrl.hostname) return;
-      if (!linkUrl.pathname.includes('/search')) return;
+      if (linkUrl.pathname !== '/search') return;
+      // 同じ検索語・検索タイプ内の qdr 変更だけを Google 検索ツールの後勝ちとみなす。
+      // 関連検索や udm ベースの画像・ショッピング・AI モード切替は通常ナビゲーションとして
+      // DNR に委ね、維持モードを解除しない。
+      if (!isSameSearchContext(cachedCurrentUrl, linkUrl)) return;
 
       const linkQdr = extractQdrFromTbs(linkUrl.searchParams.get(TBS_PARAM_KEY));
 
@@ -238,8 +277,14 @@ function initSearchClock() {
         if (!currentQdrParam) return;
         // 検索結果内のリンクは対象外
         if (link.closest('#rso')) return;
-        // 検索タイプ切替（画像/ニュース等）は対象外
-        if (linkUrl.searchParams.get('tbm') !== currentTbm) return;
+      }
+
+      // 新しいタブ・ウィンドウで開く操作はブラウザ既定の遷移方法を維持する。
+      // 後勝ちの状態更新だけは送り、現在タブを強制遷移させない。
+      if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) {
+        sendSettingsMessage({ type: 'updateQdr', qdr: '', keepSetting: false })
+          .catch((err) => console.warn('[SearchClock] 設定更新エラー:', err?.message ?? err));
+        return;
       }
 
       e.preventDefault();
@@ -260,7 +305,6 @@ function initSearchClock() {
     cachedCurrentUrl = new URL(window.location.href);
     currentQdr = urlQdr(cachedCurrentUrl);
     currentQdrParam = extractQdrFromTbs(cachedCurrentUrl.searchParams.get(TBS_PARAM_KEY));
-    currentTbm = cachedCurrentUrl.searchParams.get('tbm');
     chrome.storage.sync.get(DEFAULT_SETTINGS, ({ keepSetting }) => {
       updateUI(refs, currentQdr, keepSetting);
     });
@@ -287,6 +331,7 @@ function initSearchClock() {
       document.removeEventListener('click', clickHandler, true);
       window.removeEventListener('pageshow', pageshowHandler);
       observer.disconnect();
+      waitForInjectionTarget();
     }
   });
   observer.observe(centerCol, { childList: true });
@@ -307,15 +352,18 @@ function updateUI(refs, qdr, keepSetting) {
   refs.issueNo.textContent = refPresetIndex(qdr);
   refs.panel.classList.toggle('is-active', !!qdr);
 
-  // 期間未設定で維持 ON にすると background は qdr='' のため DNR ルール無しで動き、
-  // バッジだけ「維持中」になる偽の維持状態が成立してしまう。先にプリセット選択を促すため disable。
+  const canKeep = !!qdr && VALID_QDR_VALUES.has(qdr);
+  // 期間未設定またはプリセット外 qdr で維持 ON にすると、background が値を受理できず
+  // バッジだけ「維持中」になる偽状態が成立する。先にプリセット選択を促すため disable。
   // ただし既に維持 ON の状態（維持中に「オフ」チップを選んだ直後など）では disable しない。
   // ON のまま操作不能にすると「維持中表示だが解除できない」袋小路になり、
   // 別の期間を選び直すまで OFF に戻せなくなるため（ON 方向だけを change ハンドラで拒否する）。
-  refs.keepInput.disabled = !qdr && !keepSetting;
+  refs.keepInput.disabled = !canKeep && !keepSetting;
   refs.keepInput.checked = !!keepSetting;
-  refs.keepWrap.title = !qdr
-    ? '先に期間を選んでください（未設定では維持できません）'
+  refs.keepWrap.title = !canKeep
+    ? qdr
+      ? 'Google側の期間指定を表示中です（維持するにはプリセットを選んでください）'
+      : '先に期間を選んでください（未設定では維持できません）'
     : keepSetting
       ? '期間を維持中：次の検索でも設定が適用されます'
       : '一回限り：次の検索で自動的にオフに戻ります';

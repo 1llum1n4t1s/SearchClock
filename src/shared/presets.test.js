@@ -13,6 +13,7 @@ const {
   PRESETS,
   DEFAULT_SETTINGS,
   ACCENT_COLOR,
+  isSameSearchContext,
 } = require('./presets.js');
 
 test('extractQdrFromTbs: null/空文字は null を返す', () => {
@@ -94,4 +95,24 @@ test('PRESETS: 件数とラベルが揃っている', () => {
     assert.ok(typeof p.en === 'string' && p.en.length > 0);
     assert.ok(typeof p.value === 'string');
   }
+});
+
+test('isSameSearchContext: qdr と補助パラメータだけの変更は同じ検索として扱う', () => {
+  const current = new URL('https://www.google.com/search?q=test&tbs=qdr:y&start=10');
+  const next = new URL('https://www.google.com/search?q=test&tbs=qdr:d&source=lnt');
+  assert.equal(isSameSearchContext(current, next), true);
+});
+
+test('isSameSearchContext: 検索語が変わる関連検索は別検索として扱う', () => {
+  const current = new URL('https://www.google.com/search?q=test&tbs=qdr:y');
+  const next = new URL('https://www.google.com/search?q=other');
+  assert.equal(isSameSearchContext(current, next), false);
+});
+
+test('isSameSearchContext: tbm または udm が変わる検索タイプ切替は別検索として扱う', () => {
+  const current = new URL('https://www.google.com/search?q=test&tbs=qdr:y');
+  const news = new URL('https://www.google.com/search?q=test&tbm=nws&tbs=qdr:y');
+  const images = new URL('https://www.google.com/search?q=test&udm=2');
+  assert.equal(isSameSearchContext(current, news), false);
+  assert.equal(isSameSearchContext(current, images), false);
 });
