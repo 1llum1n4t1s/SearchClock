@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://searchclock.kagayoi.com/sitemap.xml
