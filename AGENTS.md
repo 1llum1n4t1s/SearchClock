@@ -6,7 +6,7 @@
 
 SearchClock — Google検索の期間指定を固定化するChrome拡張機能（Manifest V3）。
 
-設定した期間（例: 1年以内）で常にGoogle検索結果を絞り込む。`declarativeNetRequest`を使って検索前にURLパラメータ（`tbs=qdr:VALUE`）を付与するため、二重ローディングなし。
+検索結果ページのパネルで一回限りの期間指定（既定）と維持モードを選べる。利用者向けの機能・使い方は [README.md](README.md)、動作の詳細は [DESIGN.md](DESIGN.md) を参照する。
 
 ## ビルドコマンド
 
@@ -19,7 +19,7 @@ pnpm run generate-screenshots # webstore/*.html → webstore/images/*.png（Pupp
 pnpm run build               # check-domains → generate-icons → generate-screenshots を順次実行
 ```
 
-単一テスト実行: `node --test src/shared/presets.test.js --test-name-pattern '<pattern>'`
+単一テスト実行: `node --test --test-name-pattern '<pattern>' src/shared/presets.test.js`
 
 Chrome がない Windows 環境では `PUPPETEER_EXECUTABLE_PATH` に Edge の `msedge.exe` の絶対パスを設定して `pnpm test` と `pnpm run build` を実行する。
 
@@ -43,6 +43,7 @@ pwsh -NoProfile -File zip.ps1                      # Windows
 ./zip.sh                                            # macOS/Linux
 ```
 `manifest.json`, `src/`, `icons/` を `search-clock.zip` に含める。`src/**/*.test.*`, `node_modules`, `webstore/`, `docs/`, `scripts/` は含まない。
+両スクリプトは依存関係の固定インストールとアイコン生成を行い、失敗時は終了する。テスト・ドメイン同期検査・ストア画像生成は行わないため、配布前に上記の必須検証を済ませる。
 
 ## 設計の正本
 
@@ -56,31 +57,9 @@ pwsh -NoProfile -File zip.ps1                      # Windows
 3. `release/x.y.z` ブランチを作成して push → publish.yml が Chrome Web Store に公開
 4. 古い `release/*` ブランチは削除
 
-## プリセット一覧
+## 共有定義の変更
 
-オフ / 3時間 / 12時間 / 1日 / 3日 / 1週間 / 1ヶ月 / 3ヶ月 / 半年 / 1年 / 3年
-
-## 期間指定の仕組み
-
-Googleの`tbs`クエリパラメータで期間を制御:
-- `qdr:h3` = 3時間以内, `qdr:h12` = 12時間以内, `qdr:d` = 1日以内
-- `qdr:d3` = 3日以内, `qdr:w` = 1週間以内, `qdr:m` = 1ヶ月以内
-- `qdr:m3` = 3ヶ月以内, `qdr:m6` = 半年以内, `qdr:y` = 1年以内
-- `qdr:y3` = 3年以内
-
-## 後勝ち連携
-
-- **拡張機能で期間変更** → URLからtbsパラメータを除去して再ナビゲーション → declarativeNetRequestが新しいtbsを付与
-- **Google検索ツールで期間変更** → content.jsがクリックを検出 → chrome.storageでqdrを空に → declarativeNetRequestルール削除 → Googleの設定で再ナビゲーション
-
-## 動作モード（keepSetting）
-
-`chrome.storage.sync.keepSetting`（default `false`）で挙動を切替:
-
-- **ON（keep）**: 設定した qdr が常に適用される。declarativeNetRequest が検索リクエストに tbs を付与し続ける。アイコンに qdr バッジ表示。
-- **OFF（once、デフォルト）**: 検索を実行するたびに自動でオフへ戻る。background はルールを作らないため、検索フォーム経由のリクエストには tbs が付かない。チップ選択は content.js が URL に手動で tbs を付与してナビゲートする「1 回限り」の絞り込み。次の検索フォーム実行で自然にオフへ戻る。
-- 結果ページの状態表示は **URL の tbs を真実** として算出する（storage.qdr ではない）。
-- 注入パネル右端の switch で keepSetting を切替（popup は廃止済み）。**期間未設定（qdr=''）の状態では switch は disabled** — 先にプリセットを選ばないと ON にできない（DNR ルール無しの偽維持状態を防止）。
+プリセット、qdr値、既定設定、ラベル、アクセントカラーは `src/shared/presets.js` を変更する。background と content に個別定義を増やさず、共有スクリプトを先に読み込む順序を保つ。期間変更・維持モード・後勝ち連携の不変条件は [DESIGN.md](DESIGN.md#重要な不変条件) を参照する。
 
 ## 制約事項
 
@@ -88,5 +67,4 @@ Googleの`tbs`クエリパラメータで期間を制御:
 - 対応ドメイン: google.com, google.co.jp, google.co.uk, google.ca, google.com.au, google.de, google.fr, google.es, google.it, google.co.kr, google.com.br
   - **追加・削除時は `manifest.json` の 2 箇所（`content_scripts.matches` / `host_permissions`）と `src/background/background.js` の `GOOGLE_DOMAINS` 配列を必ず同時に更新すること**
   - 同期は `pnpm run check-domains`（または `pnpm run build`）で自動検証される。3 箇所のいずれかにズレがあると exit 1 で失敗するので、CI でも検知できる。
-- テーマ検出はbodyの背景色RGB値で判定（brightness < 128でダーク）
-- フォントは system font fallback のみ使用（IBM Plex Sans JP など web_accessible_resources でのフォント公開は廃止済み・フィンガープリント窓口を閉じるため）
+- フォントは system font fallback のみ使用し、外部フォントの読み込みや `web_accessible_resources` でのフォント公開を追加しない。
