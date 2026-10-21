@@ -21,6 +21,8 @@ pnpm run build               # check-domains → generate-icons → generate-scr
 
 単一テスト実行: `node --test src/shared/presets.test.js --test-name-pattern '<pattern>'`
 
+Chrome がない Windows 環境では `PUPPETEER_EXECUTABLE_PATH` に Edge の `msedge.exe` の絶対パスを設定して `pnpm test` と `pnpm run build` を実行する。
+
 Linter は未導入。Chrome で `chrome://extensions` → 「パッケージ化されていない拡張機能を読み込む」で動作確認する。
 
 ## 必須検証

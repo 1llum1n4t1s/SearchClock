@@ -8,7 +8,12 @@ const TEST_FILE = fileURLToPath(import.meta.url);
 const REPO_ROOT = path.resolve(path.dirname(TEST_FILE), '../..');
 
 test('維持変更・未知qdr・修飾クリック・再注入の契約を保つ', { timeout: 30_000 }, async (t) => {
-  const browser = await puppeteer.launch({ headless: true, channel: 'chrome' });
+  const browser = await puppeteer.launch({
+    headless: true,
+    ...(process.env.PUPPETEER_EXECUTABLE_PATH
+      ? { executablePath: process.env.PUPPETEER_EXECUTABLE_PATH }
+      : { channel: 'chrome' }),
+  });
   t.after(() => browser.close());
   const page = await browser.newPage();
   await page.goto(`${pathToFileURL(TEST_FILE).href}?q=test&tbs=qdr:y`);
