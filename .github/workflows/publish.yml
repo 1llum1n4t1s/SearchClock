@@ -37,14 +37,14 @@ jobs:
           echo "✅ ブランチ名と manifest バージョン一致: $expected"
 
       - name: pnpm セットアップ
-        # SHA pin (pnpm/action-setup v6.0.10) でサプライチェーン攻撃を防ぐ
+        # SHA pin (pnpm/action-setup v6.1.0) でサプライチェーン攻撃を防ぐ
         uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413  # v6.1.0
         with:
           version: 11
 
       - name: Node セットアップ
-        # SHA pin (actions/setup-node v7.0.0) でサプライチェーン攻撃を防ぐ
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        # SHA pin (actions/setup-node v7.1.0) でサプライチェーン攻撃を防ぐ
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           # Node 20 は 2026-04 で EOL のため 22 (maintenance LTS) を使用
           node-version: '22'

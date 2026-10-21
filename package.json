@@ -11,8 +11,8 @@
     "build": "pnpm run check-domains && pnpm run generate-icons && pnpm run generate-screenshots"
   },
   "devDependencies": {
-    "chrome-webstore-upload-cli": "4.0.1",
-    "puppeteer": "^25.12.0",
+    "chrome-webstore-upload-cli": "4.0.2",
+    "puppeteer": "^25.15.0",
     "sharp": "^0.35.5"
   },
   "keywords": [
