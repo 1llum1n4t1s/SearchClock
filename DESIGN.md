@@ -4,7 +4,7 @@
 
 SearchClock は、Google Web 検索の `tbs` クエリパラメータへ期間条件 `qdr:VALUE` を設定する Manifest V3 Chrome 拡張機能である。検索結果ページ上の設定パネルから一回限りの絞り込み、または後続検索にも適用する維持モードを選べる。
 
-拡張機能は対応する Google ドメインの `/search` と `chrome.storage.sync` の設定だけを扱う。外部サービスへデータを送信せず、ポップアップや独自バックエンドも持たない。
+検索への介入は対応する Google ドメインの `/search` に限定する。設定は `chrome.storage.sync` に保存し、Chrome の設定同期の対象になる。独自の外部送信処理・バックエンド・ポップアップは持たず、拡張機能アイコンのクリックでは Google トップページを新しいタブで開く。
 
 ## 主要コンポーネント
 
@@ -12,7 +12,7 @@ SearchClock は、Google Web 検索の `tbs` クエリパラメータへ期間�
 | --- | --- |
 | `manifest.json` | サービスワーカーとコンテンツスクリプトの登録、対応 Google ドメイン、`declarativeNetRequest`・`storage` 権限を定義する。共有プリセットをコンテンツ本体より先に読み込む。 |
 | `src/shared/presets.js` | プリセット、既定設定、有効な qdr 値、表示ラベル、`tbs` 解析を一元管理する。ブラウザでは共有グローバル、Node.js テストでは条件付き `module.exports` として使う。 |
-| `src/background/background.js` | `chrome.storage.sync` を正規化して読み、維持モード用 DNR 動的ルール、アイコンのバッジ・タイトル、コンテンツスクリプトからの更新メッセージを管理する。 |
+| `src/background/background.js` | `chrome.storage.sync` を正規化して読み、維持モード用 DNR 動的ルール、アイコンのバッジ・タイトルとクリック動作、コンテンツスクリプトからの更新メッセージを管理する。 |
 | `src/content/content.js` | Google 検索結果へ closed Shadow DOM の設定パネルを注入する。URLから表示状態を導出し、プリセット選択、維持モード切替、Google検索ツールとの後勝ち連携を処理する。 |
 | `src/**/*.test.*` | 共有プリセットと `tbs` 解析、サービスワーカーの状態競合、コンテンツUIの再注入を回帰テストで検証する。 |
 | `scripts/` | Google ドメイン定義の同期検査と、SVGから配布用アイコンを生成する。 |
@@ -20,7 +20,7 @@ SearchClock は、Google Web 検索の `tbs` クエリパラメータへ期間�
 | `zip.ps1` / `zip.sh` | `manifest.json`、ランタイム用の `src/`、`icons/` だけを配布ZIPへ格納し、テストは除外する。 |
 | `.github/workflows/publish.yml` | `release/**` の push を契機に検証・パッケージングし、Chrome Web Storeへ公開する。Actionsはcommit SHAで固定する。 |
 
-作業コマンドと検証手順は [AGENTS.md](AGENTS.md) を正本とする。
+作業コマンド、パッケージングと検証手順は [AGENTS.md](AGENTS.md) を正本とする。公開ワークフローではテスト・ドメイン同期検査・アイコン生成を通してからZIPを作り、ストア画像は生成しない。`release/<manifest.json の version>` とブランチ名が一致しない場合は公開を停止する。
 
 ## データフロー
 
@@ -36,6 +36,8 @@ SearchClock は、Google Web 検索の `tbs` クエリパラメータへ期間�
 2. プリセット選択時は既存tbsのqdr以外のセグメントを維持した遷移先を組み立てる。
 3. 設定更新メッセージをサービスワーカーへ送り、ストレージとルールの直列更新後に遷移する。一時失敗時は一度だけ再送し、応答しない場合もタイムアウト後に一度だけ遷移する。
 4. 一回限りモードではDNRルールを持たず、その遷移URLだけへqdrを直接付与する。次の通常検索には自動適用しない。
+
+維持スイッチを有効にするときは、現在URLのqdrを維持値として保存する。スイッチの変更自体では再遷移せず、保存失敗時はチェック状態を戻す。アイコンのバッジは現在タブのURLではなく保存設定を表し、維持中の期間を短縮ラベルで表示する。一回限りモードでは灰色の `·` を表示する。
 
 ### Google検索ツールとの後勝ち連携
 
@@ -55,7 +57,8 @@ SearchClock は、Google Web 検索の `tbs` クエリパラメータへ期間�
 - DNRは対応ドメイン、main frame、`/search?` に限定し、既存tbsのqdr以外のセグメントを保持する。未エンコードの `qdr:` と `qdr%3A` の両方を既存qdrとして扱う。
 - 対応ドメインの正本は `background.js` の `GOOGLE_DOMAINS` とし、`manifest.json` の `content_scripts.matches`・`host_permissions` との一致を `pnpm run check-domains` で検証する。
 - コンテンツUIはclosed Shadow DOMとsystem fontだけを使い、Google側CSSとの干渉と外部フォント通信を避ける。
-- GoogleのDOM更新で注入先が差し替わった場合は、破棄UIの保留処理を取り消して新しい注入先へパネルを一度だけ再注入する。
+- 注入先が見つからない場合は最大10秒間DOMを監視する。GoogleのDOM更新で注入先が差し替わった場合は、破棄UIのイベントリスナーと監視を解除して再注入を試みる。
+- bfcacheからの復元時は `pageshow` で現在URLとqdrを再評価し、表示とリンクの期間変更判定を更新する。
 - 配布ZIPにテスト、開発用依存、生成スクリプト、ストア素材を含めない。
 
 ## 採用済み設計判断
