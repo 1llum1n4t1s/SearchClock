@@ -224,7 +224,8 @@ function initSearchClock() {
       refs.keepInput.checked = false;
       return;
     }
-    const updates = { type: 'updateKeepSetting', keepSetting: next, qdr: currentQdr };
+    const updates = { type: 'updateKeepSetting', keepSetting: next };
+    if (next) updates.qdr = currentQdr;
     try {
       await sendSettingsMessage(updates);
     } catch (err) {
@@ -551,7 +552,6 @@ const THEME_DARK = `
       --paper-deep: #14101a;
       --paper-card: #25202a;
       --rule: #3a3340;
-      --rule-soft: #2a242e;
       --rule-strong: #54454f;
       --accent: #a892e2;
       --accent-deep: #c2b0eb;
@@ -567,7 +567,6 @@ const THEME_LIGHT = `
       --paper-deep: #f3f0fa;
       --paper-card: #ffffff;
       --rule: #e4dff0;
-      --rule-soft: #efebf6;
       --rule-strong: #cdc5e0;
       --accent: ${ACCENT_COLOR};
       --accent-deep: #4D3590;

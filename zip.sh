@@ -12,8 +12,8 @@ echo "既存のZIPファイルを削除しました"
 
 if [ -f scripts/generate-icons.js ]; then
   echo "アイコン生成中..."
-  pnpm install --frozen-lockfile --silent
-  node scripts/generate-icons.js
+  pnpm install --frozen-lockfile --silent || exit $?
+  node scripts/generate-icons.js || exit $?
 fi
 
 if ! command -v zip &> /dev/null; then

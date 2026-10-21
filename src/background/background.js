@@ -6,7 +6,7 @@ importScripts('../shared/presets.js');
 
 const GOOGLE_DOMAINS = [
   // NOTE: manifest.json の content_scripts.matches / host_permissions と必ず同期すること。
-  // 片側欠落でドメインが部分機能不全になる。CLAUDE.md「制約事項」節も同時更新。
+  // 片側欠落でドメインが部分機能不全になる。AGENTS.md「制約事項」節も同時更新。
   'www.google.com',
   'www.google.co.jp',
   'www.google.co.uk',
@@ -34,6 +34,7 @@ const BADGE_BG_OFF = '#9b948b';
 // SW 再起動時は null にリセットされる → 次回呼び出しで必ず updateRules が走る安全側
 let appliedQdr = null;
 let appliedKeepSetting = null;
+let badgeUpdated = false;
 
 // 設定保存と updateRules を Promise チェーンで直列化（並行実行による状態逆転を防止）
 // onMessage / onChanged / initRules すべてここを通すこと。
@@ -67,12 +68,15 @@ function enqueueUpdateRules(settingsUpdates) {
 //                                  (例 tbs=isz:l → tbs=qdr:y,isz:l)
 //   ADD   (priority 1, redirect): tbs なし → addOrReplaceParams で qdr=Y を新規追加
 async function updateRules(qdr, keepSetting) {
+  const effectiveQdr = keepSetting ? qdr : '';
+
   // 冪等チェック: 既に同状態なら DNR を触らず即帰る。
   // onMessage 経由で更新後に発火する onChanged の二重実行や、SW 起動直後の重複 init を吸収する。
+  // once 中の qdr 変更はルールもバッジも変えないため、バッジ適用済みなら省略する。
+  // バッジ失敗後の別期間選択は従来どおり再試行し、同じ入力の重複更新は抑える。
   // SW 再起動時は appliedQdr=null なので必ず通り、安全側に倒れる。
-  if (qdr === appliedQdr && keepSetting === appliedKeepSetting) return;
-
-  const effectiveQdr = keepSetting ? qdr : '';
+  if (keepSetting === appliedKeepSetting
+      && (qdr === appliedQdr || (!keepSetting && badgeUpdated))) return;
 
   // remove と add を単一呼び出しにまとめてルール空白期間をなくす
   await chrome.declarativeNetRequest.updateDynamicRules({
@@ -147,12 +151,12 @@ async function updateRules(qdr, keepSetting) {
     ] : [],
   });
 
-  // updateDynamicRules 失敗時は throw され、ここに到達しないため appliedQdr は更新されない。
+  // updateDynamicRules 失敗時は throw され、ここに到達しないため適用済み状態は更新されない。
   // → 次回 onChanged で冪等チェックが必ず失敗し、自動的に再試行される（暗黙のリトライ経路）。
   appliedQdr = qdr;
   appliedKeepSetting = keepSetting;
 
-  await refreshBadge(qdr, keepSetting);
+  badgeUpdated = await refreshBadge(qdr, keepSetting);
 }
 
 // バッジ + ツールチップを更新
@@ -179,9 +183,11 @@ async function refreshBadge(qdr, keepSetting) {
       chrome.action.setBadgeText({ text }),
       chrome.action.setTitle({ title }),
     ]);
+    return true;
   } catch (err) {
     // バッジ更新失敗は機能本体に影響しないので警告のみで続行
     console.warn('[SearchClock] バッジ更新失敗:', err?.message ?? err);
+    return false;
   }
 }
 
@@ -232,7 +238,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (!isQdrUpdate && !isKeepUpdate) return;
 
   // qdr 値のホワイトリスト検証
-  if (!VALID_QDR_VALUES.has(msg.qdr)) {
+  // 維持 OFF だけなら qdr は省略できる。指定がある場合と維持 ON は従来どおり検証する。
+  const keepOffWithoutQdr = isKeepUpdate && msg.keepSetting === false && msg.qdr === undefined;
+  if (!keepOffWithoutQdr && !VALID_QDR_VALUES.has(msg.qdr)) {
     sendResponse({ done: false, error: 'invalid qdr' });
     return false;
   }
@@ -242,7 +250,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return false;
   }
 
-  const updates = { qdr: msg.qdr };
+  const updates = keepOffWithoutQdr ? {} : { qdr: msg.qdr };
   // 後勝ちは updateQdr でも keepSetting:false を明示する。
   if (isKeepUpdate || msg.keepSetting === false) {
     updates.keepSetting = !!msg.keepSetting;

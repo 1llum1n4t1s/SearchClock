@@ -63,8 +63,6 @@ async function generateScreenshot(browser, htmlPath, outputPath, width, height) 
       timeout: 30000
     });
 
-    await new Promise(resolve => setTimeout(resolve, 500));
-
     await page.screenshot({
       path: outputPath,
       type: 'png',

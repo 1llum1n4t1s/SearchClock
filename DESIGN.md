@@ -54,6 +54,8 @@ SearchClock は、Google Web 検索の `tbs` クエリパラメータへ期間�
 - 保存とDNR適用では `VALID_QDR_VALUES` のqdrだけを受理し、サービスワーカーは送信元拡張機能IDも検証する。URL由来のプリセット外qdrは表示するが維持対象にしない。
 - DNRルールの削除と追加は1回の `updateDynamicRules` で行い、ルールが一時的に空になる期間を作らない。
 - 設定書き込みとDNR更新は同じPromiseキューで直列化し、ストレージへ保存した最新値からルールを構築する。前段の失敗は後続更新を停止させない。
+- DNRとバッジの重複適用は実際の適用期間と維持モードで判定し、一回限りモードの期間選択でも保存設定は更新する。バッジ更新に失敗した場合は、別期間の選択時に再試行する従来の回復経路を保つ。
+- 維持OFFのメッセージはqdrを省略して保存期間を保持できる。維持ONまたはqdrの変更では引き続きプリセット値を検証する。
 - DNRは対応ドメイン、main frame、`/search?` に限定し、既存tbsのqdr以外のセグメントを保持する。未エンコードの `qdr:` と `qdr%3A` の両方を既存qdrとして扱う。
 - 対応ドメインの正本は `background.js` の `GOOGLE_DOMAINS` とし、`manifest.json` の `content_scripts.matches`・`host_permissions` との一致を `pnpm run check-domains` で検証する。
 - コンテンツUIはclosed Shadow DOMとsystem fontだけを使い、Google側CSSとの干渉と外部フォント通信を避ける。
