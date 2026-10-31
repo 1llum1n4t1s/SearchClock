@@ -76,34 +76,25 @@ test('維持変更・未知qdr・修飾クリック・再注入の契約を保�
   }]);
 
   const unknownQdrState = await page.evaluate(() => {
-    const root = document.getElementById('searchclock-root');
-    const shadow = root.shadowRoot;
-    const refs = {
-      status: shadow.getElementById('sc-status'),
-      tbs: shadow.getElementById('sc-tbs'),
-      issueNo: shadow.getElementById('sc-issue-no'),
-      panel: shadow.getElementById('sc-panel'),
-      keepInput: shadow.getElementById('sc-keep-input'),
-      keepWrap: shadow.getElementById('sc-keep'),
-      modeChip: shadow.getElementById('sc-mode-chip'),
-      radios: shadow.querySelectorAll('input[name="qdr"]'),
-    };
-    const qdr = urlQdr(new URL('https://www.google.com/search?q=test&tbs=qdr:h'));
-    updateUI(refs, qdr, false);
+    history.replaceState(null, '', '?q=test&tbs=qdr:h');
+    window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }));
+    const shadow = document.getElementById('searchclock-root').shadowRoot;
     return {
-      qdr,
-      status: refs.status.textContent,
-      tbs: refs.tbs.textContent,
-      active: refs.panel.classList.contains('is-active'),
-      keepDisabled: refs.keepInput.disabled,
+      status: shadow.getElementById('sc-status').textContent,
+      tbs: shadow.getElementById('sc-tbs').textContent,
+      active: shadow.getElementById('sc-panel').classList.contains('is-active'),
+      keepDisabled: shadow.getElementById('sc-keep-input').disabled,
     };
   });
   assert.deepEqual(unknownQdrState, {
-    qdr: 'h',
     status: '1時間以内',
     tbs: 'qdr:h',
     active: true,
     keepDisabled: true,
+  });
+  await page.evaluate(() => {
+    history.replaceState(null, '', '?q=test&tbs=qdr:y');
+    window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }));
   });
 
   const modifiedClick = await page.evaluate(() => {
@@ -124,7 +115,7 @@ test('維持変更・未知qdr・修飾クリック・再注入の契約を保�
   assert.equal(modifiedClick.defaultPrevented, false);
   assert.deepEqual(modifiedClick.messages, [{ type: 'updateQdr', qdr: '', keepSetting: false }]);
 
-  const retryResult = await page.evaluate(async () => {
+  await page.evaluate(() => {
     window.__settingsMessages = [];
     let shouldFail = true;
     chrome.runtime.sendMessage = (msg, callback) => {
@@ -136,11 +127,18 @@ test('維持変更・未知qdr・修飾クリック・再注入の契約を保�
       }
       callback({ done: true });
     };
-    await sendSettingsMessage({ type: 'updateQdr', qdr: 'd' });
-    return window.__settingsMessages;
+    const keepInput = document.getElementById('searchclock-root').shadowRoot.getElementById('sc-keep-input');
+    keepInput.checked = true;
+    keepInput.dispatchEvent(new Event('change'));
   });
+  // 修飾クリックで別タブが開くと描画が止まるため、メッセージ完了はフレームに依存せず待つ。
+  await page.waitForFunction(() => window.__settingsMessages.length === 2, { polling: 50, timeout: 5000 });
+  const retryResult = await page.evaluate(() => window.__settingsMessages);
   assert.equal(retryResult.length, 2);
+  assert.deepEqual(retryResult[0], { type: 'updateKeepSetting', keepSetting: true, qdr: 'y' });
   assert.deepEqual(retryResult[0], retryResult[1]);
+  assert.equal(await page.evaluate(() => document.getElementById('searchclock-root')
+    .shadowRoot.getElementById('sc-keep-input').checked), true);
 
   const rapidChangeMessages = await page.evaluate(() => {
     window.__settingsMessages = [];

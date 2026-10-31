@@ -13,7 +13,7 @@ function delay(ms) {
 
 function createHarness({ failDynamicUpdates = 0, setDelay = () => 0 } = {}) {
   const storage = { qdr: '', keepSetting: true };
-  const dynamicCalls = [];
+  const appliedUpdates = [];
   const listeners = {};
   let remainingDynamicFailures = failDynamicUpdates;
 
@@ -45,11 +45,11 @@ function createHarness({ failDynamicUpdates = 0, setDelay = () => 0 } = {}) {
     },
     declarativeNetRequest: {
       updateDynamicRules: async (options) => {
-        dynamicCalls.push(options);
         if (remainingDynamicFailures > 0) {
           remainingDynamicFailures--;
           throw new Error('DNR failed');
         }
+        appliedUpdates.push(options);
       },
     },
     action: {
@@ -77,11 +77,11 @@ function createHarness({ failDynamicUpdates = 0, setDelay = () => 0 } = {}) {
     assert.equal(handled, true);
   });
 
-  return { storage, dynamicCalls, send };
+  return { storage, appliedUpdates, send };
 }
 
-function lastAppliedQdr(dynamicCalls) {
-  const call = dynamicCalls.at(-1);
+function lastAppliedQdr(appliedUpdates) {
+  const call = appliedUpdates.at(-1);
   const addRule = call?.addRules?.find((rule) => rule.id === 1);
   const value = addRule?.action?.redirect?.transform?.queryTransform?.addOrReplaceParams?.[0]?.value;
   return value?.replace('qdr:', '') ?? '';
@@ -99,7 +99,7 @@ test('連続 updateQdr はストレージと DNR の両方で最後の選択が�
 
   assert.deepEqual(responses.map((response) => response.done), [true, true]);
   assert.equal(harness.storage.qdr, 'y');
-  assert.equal(lastAppliedQdr(harness.dynamicCalls), 'y');
+  assert.equal(lastAppliedQdr(harness.appliedUpdates), 'y');
 });
 
 test('維持モード変更も同じキューで qdr と keepSetting を保存する', async () => {
@@ -113,7 +113,7 @@ test('維持モード変更も同じキューで qdr と keepSetting を保存�
 
   assert.equal(response.done, true);
   assert.deepEqual(harness.storage, { qdr: 'm3', keepSetting: true });
-  assert.equal(lastAppliedQdr(harness.dynamicCalls), 'm3');
+  assert.equal(lastAppliedQdr(harness.appliedUpdates), 'm3');
 });
 
 test('DNR 更新失敗は done:false を返し、保存済み設定から再試行できる', async () => {
@@ -124,5 +124,5 @@ test('DNR 更新失敗は done:false を返し、保存済み設定から再試�
   assert.equal(response.done, false);
   assert.equal(response.error, 'settings update failed');
   assert.equal(harness.storage.qdr, 'y3');
-  assert.equal(lastAppliedQdr(harness.dynamicCalls), 'y3');
+  assert.equal(lastAppliedQdr(harness.appliedUpdates), 'y3');
 });
