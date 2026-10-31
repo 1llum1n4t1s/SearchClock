@@ -1,6 +1,6 @@
 {
   "name": "search-clock",
-  "version": "1.0.12",
+  "version": "1.0.13",
   "type": "commonjs",
   "packageManager": "pnpm@12.16.1",
   "volta": {
