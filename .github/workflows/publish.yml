@@ -77,6 +77,41 @@ jobs:
             -x "*.DS_Store" "*.swp" "*~" "*.test.js" "*.test.mjs"
           ls -lh search-clock.zip
 
+      - name: 提出ZIPの版・構成・ハッシュを検証
+        id: package
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          unzip -t search-clock.zip
+          node <<'NODE'
+          const { execFileSync } = require('node:child_process');
+          const { readFileSync, appendFileSync } = require('node:fs');
+          const { createHash } = require('node:crypto');
+          const assert = require('node:assert/strict');
+          const zip = 'search-clock.zip';
+          const entries = execFileSync('unzip', ['-Z1', zip], { encoding: 'utf8' }).trim().split('\n');
+          assert.equal(new Set(entries).size, entries.length, 'ZIP内の重複エントリ');
+          const files = entries.filter(entry => !entry.endsWith('/')).sort();
+          const expected = execFileSync('git', ['ls-files', '-z', 'manifest.json', 'icons', 'src'], { encoding: 'utf8' })
+            .split('\0').filter(Boolean)
+            .filter(entry => !/(?:\.DS_Store|\.swp|~|\.test\.js|\.test\.mjs)$/.test(entry)).sort();
+          assert.deepEqual(files, expected, 'ZIPの不足・余分なファイル');
+          const hash = data => createHash('sha256').update(data).digest('hex');
+          for (const entry of files) {
+            assert.equal(hash(execFileSync('unzip', ['-p', zip, entry])), hash(readFileSync(entry)), entry);
+          }
+          const manifest = JSON.parse(execFileSync('unzip', ['-p', zip, 'manifest.json'], { encoding: 'utf8' }));
+          const source = JSON.parse(readFileSync('manifest.json', 'utf8'));
+          const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
+          assert.equal(manifest.version, process.env.RELEASE_VERSION);
+          assert.equal(manifest.version, pkg.version);
+          assert.equal(manifest.name, source.name);
+          assert.equal(manifest.manifest_version, 3);
+          const sha256 = hash(readFileSync(zip));
+          appendFileSync(process.env.GITHUB_OUTPUT, `sha256=${sha256}\n`);
+          console.log(JSON.stringify({ source: process.env.GITHUB_SHA, version: manifest.version, files: files.length, sha256 }));
+          NODE
+
       - name: Chrome Web Store にアップロード & 公開
         env:
           CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
@@ -84,7 +119,9 @@ jobs:
           REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
           EXTENSION_ID: ${{ secrets.CWS_EXTENSION_ID }}
           PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}
+          PACKAGE_SHA256: ${{ steps.package.outputs.sha256 }}
         run: |
+          echo "$PACKAGE_SHA256  search-clock.zip" | sha256sum --check
           # devDependencies に固定した chrome-webstore-upload-cli v4 を pnpm exec で起動
           # （npx --yes による毎回ネットワーク取得 + 認証情報漏洩リスクを回避）
           # v4 は --client-id 等の CLI フラグを廃止し環境変数必須に変更。
