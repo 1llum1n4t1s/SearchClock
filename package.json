@@ -2,6 +2,10 @@
   "name": "search-clock",
   "version": "1.0.12",
   "type": "commonjs",
+  "packageManager": "pnpm@12.16.1",
+  "volta": {
+    "node": "26.13.0"
+  },
   "description": "Chrome extension to fix Google search time period filters",
   "scripts": {
     "test": "node --test src/shared/presets.test.js src/background/background.test.js src/content/content.test.mjs",
@@ -12,7 +16,7 @@
   },
   "devDependencies": {
     "chrome-webstore-upload-cli": "4.0.2",
-    "puppeteer": "^25.15.0",
+    "puppeteer": "^25.16.0",
     "sharp": "^0.35.5"
   },
   "keywords": [
