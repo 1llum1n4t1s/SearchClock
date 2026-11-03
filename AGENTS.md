@@ -11,17 +11,17 @@ SearchClock — Google検索の期間指定を固定化するChrome拡張機能�
 ## ビルドコマンド
 
 ```bash
-pnpm install                 # 依存関係インストール（sharp, puppeteer, chrome-webstore-upload-cli）
-pnpm test                    # 共有関数、SW競合、コンテンツ再注入の回帰テスト
-pnpm run check-domains       # manifest.json と background.js のドメインリスト同期検証（ズレで exit 1）
-pnpm run generate-icons      # icons/icon.svg → icons/icon-{16,48,128}.png（1つでも失敗で exit 1）
-pnpm run generate-screenshots # webstore/*.html → webstore/images/*.png（Puppeteer。失敗時 throw → exit 1）
-pnpm run build               # check-domains → generate-icons → generate-screenshots を順次実行
+bun install                 # 依存関係インストール（sharp, puppeteer）
+bun --bun run test                    # 共有関数、SW競合、コンテンツ再注入の回帰テスト
+bun --bun run check-domains       # manifest.json と background.js のドメインリスト同期検証（ズレで exit 1）
+bun --bun run generate-icons      # icons/icon.svg → icons/icon-{16,48,128}.png（1つでも失敗で exit 1）
+bun --bun run generate-screenshots # webstore/*.html → webstore/images/*.png（Puppeteer。失敗時 throw → exit 1）
+bun --bun run build               # check-domains → generate-icons → generate-screenshots を順次実行
 ```
 
-単一テスト実行: `node --test --test-name-pattern '<pattern>' src/shared/presets.test.js`
+単一テスト実行: `bun test --test-name-pattern '<pattern>' src/shared/presets.test.js`
 
-Chrome がない Windows 環境では `PUPPETEER_EXECUTABLE_PATH` に Edge の `msedge.exe` の絶対パスを設定して `pnpm test` と `pnpm run build` を実行する。
+Chrome がない Windows 環境では `PUPPETEER_EXECUTABLE_PATH` に Edge の `msedge.exe` の絶対パスを設定して `bun --bun run test` と `bun --bun run build` を実行する。
 
 Linter は未導入。Chrome で `chrome://extensions` → 「パッケージ化されていない拡張機能を読み込む」で動作確認する。
 
@@ -30,9 +30,9 @@ Linter は未導入。Chrome で `chrome://extensions` → 「パッケージ化
 コード、依存、生成設定を変更した後は、次をすべて実行する。
 
 ```bash
-pnpm install --frozen-lockfile
-pnpm test
-pnpm run build
+bun run deps
+bun --bun run test
+bun --bun run build
 git diff --check
 ```
 
@@ -66,5 +66,17 @@ pwsh -NoProfile -File zip.ps1                      # Windows
 - `declarativeNetRequest`のリダイレクトには`host_permissions`が必要
 - 対応ドメイン: google.com, google.co.jp, google.co.uk, google.ca, google.com.au, google.de, google.fr, google.es, google.it, google.co.kr, google.com.br
   - **追加・削除時は `manifest.json` の 2 箇所（`content_scripts.matches` / `host_permissions`）と `src/background/background.js` の `GOOGLE_DOMAINS` 配列を必ず同時に更新すること**
-  - 同期は `pnpm run check-domains`（または `pnpm run build`）で自動検証される。3 箇所のいずれかにズレがあると exit 1 で失敗するので、CI でも検知できる。
+  - 同期は `bun --bun run check-domains`（または `bun --bun run build`）で自動検証される。3 箇所のいずれかにズレがあると exit 1 で失敗するので、CI でも検知できる。
 - フォントは system font fallback のみ使用し、外部フォントの読み込みや `web_accessible_resources` でのフォント公開を追加しない。
+
+### CWS 公開のHTTP境界
+
+`publish.yml` はビルド済みZIPを `scripts/Publish-Cws.ps1`（PowerShell 7）へ渡す。既存のOAuth secrets・publisher/item IDを維持し、ZIPをストリーム送信し、upload成功を確認してからpublishする。重複・通信断・不明な応答を公開成功として扱わず、ストア状態を確認してから再開する。公開専用npm CLIは使用しない。変更時はHTTP fixtureで成功・版/ID不一致・upload失敗・publish拒否を確認する。
+
+CWS公開workflowはrepository固定のconcurrency groupで直列化する。同期uploadの成功・ID・版を確認した場合だけpublishし、非同期uploadはAPI v2でdraft版を要求と結び付けられないため停止する。APIにはuploadとpublishの原子的なCASが無いため、提出中はDashboardや他の手動公開操作を並行しない。
+
+## Bun依存の脆弱性検出
+
+依存の固定復元は `bun run deps` を使う。lock欠落・破損を拒否し、`[run] bun=true` 経由で依存のpostinstallまでBunで実行する。Node.jsがあるPCでも通常の `bun install` を直接使う経路へ戻さない。
+
+日次と手動実行では `bun audit` でlock全体を監査する。ローカルでも同じコマンドで確認できる。BunはDependabotの通常の更新PRには対応するが、脆弱性起点の自動修正PRは `dependency-security.yml` が補完する。日次・手動で全件監査し、隔離領域で `bun audit fix` による候補を作成し、同じrunから既存の Dependency validation を呼ぶ。未対策アドバイザリが減少し、依存以外のmanifest・パッチ・24時間待機を保ち、全検証が成功した場合だけ、検証したマージコミットを競合検知付きの通常pushで取り込む。保護されたブランチには自動pushせず、修正版未公開・互換性・検証失敗は単一のIssueに通知して次回再試行する。生の監査は警告を除外せず、対策済みパッチの認定も監査成功とは区別してsummaryへ残す。既知のdeepmerge対策はアドバイザリ・版・パッチSHAが完全一致した場合だけ修正対象から外し、生監査には残す。通常のDependabot更新と他ecosystemの設定は維持する。

@@ -11,7 +11,7 @@ SearchClock は、Google Web 検索の `tbs` クエリパラメータへ期間�
 | コンポーネント | 責務と境界 |
 | --- | --- |
 | `manifest.json` | サービスワーカーとコンテンツスクリプトの登録、対応 Google ドメイン、`declarativeNetRequest`・`storage` 権限を定義する。共有プリセットをコンテンツ本体より先に読み込む。 |
-| `src/shared/presets.js` | プリセット、既定設定、有効な qdr 値、表示ラベル、`tbs` 解析を一元管理する。ブラウザでは共有グローバル、Node.js テストでは条件付き `module.exports` として使う。 |
+| `src/shared/presets.js` | プリセット、既定設定、有効な qdr 値、表示ラベル、`tbs` 解析を一元管理する。ブラウザでは共有グローバル、Bun テストでは条件付き `module.exports` として使う。 |
 | `src/background/background.js` | `chrome.storage.sync` を正規化して読み、維持モード用 DNR 動的ルール、アイコンのバッジ・タイトルとクリック動作、コンテンツスクリプトからの更新メッセージを管理する。 |
 | `src/content/content.js` | Google 検索結果へ closed Shadow DOM の設定パネルを注入する。URLから表示状態を導出し、プリセット選択、維持モード切替、Google検索ツールとの後勝ち連携を処理する。 |
 | `src/**/*.test.*` | 共有プリセットと `tbs` 解析、サービスワーカーの状態競合、コンテンツUIの再注入を回帰テストで検証する。 |
@@ -56,7 +56,7 @@ SearchClock は、Google Web 検索の `tbs` クエリパラメータへ期間�
 - 設定書き込みとDNR更新は同じPromiseキューで直列化し、ストレージへ保存した最新値からルールを構築する。前段の失敗は後続更新を停止させない。
 - DNR適用済みのqdrと維持モードを記録し、同一入力の重複適用を省く。一回限りモードではバッジ更新成功後の期間変更でもDNRとバッジの再適用を省くが、保存設定は更新する。バッジ更新に失敗した場合は、別期間の選択時に再試行する。サービスワーカー再起動時は適用済み状態をリセットし、再適用する。
 - DNRは対応ドメイン、main frame、`/search?` に限定し、既存tbsのqdr以外のセグメントを保持する。未エンコードの `qdr:` と `qdr%3A` の両方を既存qdrとして扱う。
-- 対応ドメインの正本は `background.js` の `GOOGLE_DOMAINS` とし、`manifest.json` の `content_scripts.matches`・`host_permissions` との一致を `pnpm run check-domains` で検証する。
+- 対応ドメインの正本は `background.js` の `GOOGLE_DOMAINS` とし、`manifest.json` の `content_scripts.matches`・`host_permissions` との一致を `bun --bun run check-domains` で検証する。
 - コンテンツUIはclosed Shadow DOMとsystem fontだけを使い、Google側CSSとの干渉と外部フォント通信を避ける。テーマは注入時のbody背景色のRGB平均が128未満ならダークとして判定する。
 - 注入先が見つからない場合は最大10秒間DOMを監視する。GoogleのDOM更新で注入先が差し替わった場合は、破棄UIのイベントリスナーと監視を解除して再注入を試みる。
 - bfcacheからの復元時は `pageshow` で現在URLとqdrを再評価し、表示とリンクの期間変更判定を更新する。

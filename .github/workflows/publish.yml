@@ -8,14 +8,28 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: publish-${{ github.repository }}
+  cancel-in-progress: false
+  queue: max
+
 jobs:
   publish:
     name: Chrome Web Store 公開
     runs-on: ubuntu-latest
     steps:
-      - name: リポジトリをチェックアウト
-        # SHA pin (actions/checkout v7.0.1) でサプライチェーン攻撃を防ぐ
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Checkout release commit with native git
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git"
+          auth=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 | tr -d '\n')
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth" fetch --no-tags --depth=1 origin "$GITHUB_SHA"
+          git checkout --detach FETCH_HEAD
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth" submodule update --init --recursive
 
       - name: バージョンを取得
         id: version
@@ -36,37 +50,29 @@ jobs:
           fi
           echo "✅ ブランチ名と manifest バージョン一致: $expected"
 
-      - name: pnpm セットアップ
-        # SHA pin (pnpm/action-setup v6.1.0) でサプライチェーン攻撃を防ぐ
-        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413  # v6.1.0
-      - name: Node セットアップ
-        # SHA pin (actions/setup-node v7.1.0) でサプライチェーン攻撃を防ぐ
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
-        with:
-          # 開発用 runtime は Node 26 の最新安定版を使用
-          node-version: '26'
-          cache: 'pnpm'
+      - name: Prepare Bun build toolchain
+        shell: pwsh
+        run: ./scripts/Initialize-BunBuild.ps1 -VersionFile package.json
 
       - name: 依存インストール
-        # pnpm install --frozen-lockfile で pnpm-lock.yaml の integrity を検証してインストール
-        # chrome-webstore-upload-cli も devDependencies に固定済み
+        # bun run deps で bun.lock の integrity を検証してインストール
         # browser回帰テストはrunner組み込みChromeを使うため、Puppeteer管理Chromeの取得は不要
         env:
           PUPPETEER_SKIP_DOWNLOAD: 'true'
-        run: pnpm install --frozen-lockfile
+        run: bun run deps
 
       - name: 回帰テスト
         # 公開前ゲート: 共有関数、SW競合、runner組み込みChromeでのコンテンツUIを検証。
         # 失敗したら以降のパッケージング・アップロードを実行しない。
-        run: pnpm test
+        run: bun --bun run test
 
       - name: Google ドメインリストの 3 箇所同期チェック
         # manifest.json (matches / host_permissions) と background.js (GOOGLE_DOMAINS) のズレを検知。
         # 片側欠落は部分機能不全 (DNR は動くが content script 未注入 等) を生む。
-        run: node scripts/check-domains.js
+        run: bun scripts/check-domains.js
 
       - name: アイコン生成
-        run: node scripts/generate-icons.js
+        run: bun scripts/generate-icons.js
 
       - name: zip パッケージを作成
         run: |
@@ -80,12 +86,13 @@ jobs:
           RELEASE_VERSION: ${{ steps.version.outputs.version }}
         run: |
           unzip -t search-clock.zip
-          node <<'NODE'
+          bun - <<'NODE'
           const { execFileSync } = require('node:child_process');
           const { readFileSync, appendFileSync } = require('node:fs');
           const { createHash } = require('node:crypto');
           const assert = require('node:assert/strict');
           const zip = 'search-clock.zip';
+          const originalHash = createHash('sha256').update(readFileSync(zip)).digest('hex');
           const entries = execFileSync('unzip', ['-Z1', zip], { encoding: 'utf8' }).trim().split('\n');
           assert.equal(new Set(entries).size, entries.length, 'ZIP内の重複エントリ');
           const files = entries.filter(entry => !entry.endsWith('/')).sort();
@@ -106,6 +113,7 @@ jobs:
           assert.equal(manifest.name, source.name);
           assert.equal(manifest.manifest_version, 3);
           const sha256 = hash(readFileSync(zip));
+          assert.equal(sha256, originalHash, 'ZIP changed during verification');
           appendFileSync(process.env.GITHUB_OUTPUT, `sha256=${sha256}\n`);
           console.log(JSON.stringify({ source: process.env.GITHUB_SHA, version: manifest.version, files: files.length, sha256 }));
           NODE
@@ -119,10 +127,5 @@ jobs:
           PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}
           PACKAGE_SHA256: ${{ steps.package.outputs.sha256 }}
         run: |
-          echo "$PACKAGE_SHA256  search-clock.zip" | sha256sum --check
-          # devDependencies に固定した chrome-webstore-upload-cli v4 を pnpm exec で起動
-          # （npx --yes による毎回ネットワーク取得 + 認証情報漏洩リスクを回避）
-          # v4 は --client-id 等の CLI フラグを廃止し環境変数必須に変更。
-          # コマンド(upload/publish)を省略すると upload→publish が自動で連続実行される。
-          pnpm exec chrome-webstore-upload --source search-clock.zip
-          echo "🎉 Chrome Web Store への公開リクエストを送信したよ〜"
+          pwsh -NoProfile -File scripts/Test-PublishCws.ps1 -WorkDirectory "$RUNNER_TEMP/cws-publisher-tests"
+          pwsh -NoProfile -File scripts/Publish-Cws.ps1 -Archive "search-clock.zip" -ExpectedSha256 "$PACKAGE_SHA256"

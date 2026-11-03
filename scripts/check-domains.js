@@ -4,7 +4,7 @@
 //   3. src/background/background.js の GOOGLE_DOMAINS 配列
 //
 // 片側欠落は無音の部分機能不全（DNR は動くが content script が注入されない／その逆）を生むため、
-// npm run build に組み込んで CI とローカルビルドで自動チェックする。
+// bun --bun run build に組み込んで CI とローカルビルドで自動チェックする。
 
 const fs = require('fs');
 const path = require('path');

@@ -42,9 +42,9 @@ try {
     Write-Host '拡張機能パッケージを生成中...' -ForegroundColor Cyan
     Push-Location -LiteralPath $scriptDir
     try {
-        pnpm install --frozen-lockfile --silent
+        bun run deps --silent
         if ($LASTEXITCODE -ne 0) { throw '依存関係のインストールに失敗しました。' }
-        node scripts/generate-icons.js
+        bun scripts/generate-icons.js
         if ($LASTEXITCODE -ne 0) { throw 'アイコンの生成に失敗しました。' }
     } finally {
         Pop-Location
