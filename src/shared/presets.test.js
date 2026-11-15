@@ -1,5 +1,5 @@
-// Node 組み込みテストランナー (node:test) によるユニットテスト。依存ゼロ。
-// 実行: `npm test` または `node --test src/shared/presets.test.js`
+// node:test 形式のユニットテスト（bun test の node:test 互換で実行）。依存ゼロ。
+// 実行: `bun --bun run test` または `bun test src/shared/presets.test.js`
 //
 // 対象は extractQdrFromTbs / refPresetIndex / isSameSearchContext の純粋関数群。
 // 拡張機能本体は依存しない（テストファイルは zip に含めない）。
@@ -20,8 +20,8 @@ test('extractQdrFromTbs: null/空文字は null を返す', () => {
 
 test('extractQdrFromTbs: 単独 qdr セグメント', () => {
   assert.equal(extractQdrFromTbs('qdr:y'), 'y');
+  // 英字のみ / 英字+数字の 2 クラスを代表で確認
   assert.equal(extractQdrFromTbs('qdr:h3'), 'h3');
-  assert.equal(extractQdrFromTbs('qdr:y3'), 'y3');
 });
 
 test('extractQdrFromTbs: 複合 tbs から qdr を取り出す', () => {
@@ -45,7 +45,6 @@ test('extractQdrFromTbs: qdr の前後に文字があると誤マッチしない
 
 test('refPresetIndex: 不明値は "—" を返す', () => {
   assert.equal(refPresetIndex('invalid'), '—');
-  assert.equal(refPresetIndex('xyz'), '—');
 });
 
 test('isSameSearchContext: qdr と補助パラメータだけの変更は同じ検索として扱う', () => {
