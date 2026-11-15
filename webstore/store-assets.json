@@ -1,0 +1,194 @@
+{
+  "brand": "SearchClock",
+  "icon": "icons/icon.svg",
+  "extensionDir": ".",
+  "palette": {
+    "primary": "#2F7BFF",
+    "secondary": "#F5A623"
+  },
+  "locales": [
+    "en",
+    "ja",
+    "zh_CN",
+    "zh_TW",
+    "ko",
+    "es",
+    "fr",
+    "de",
+    "pt_BR"
+  ],
+  "captures": [
+    {
+      "id": "panel-default",
+      "kind": "page",
+      "url": "https://www.google.co.jp/search?q=vitrina",
+      "fixture": "search-results.html",
+      "waitFor": "#searchclock-root",
+      "clip": {
+        "selector": "#searchclock-root",
+        "pad": {
+          "top": 64,
+          "right": 32,
+          "bottom": 64,
+          "left": 96
+        }
+      }
+    },
+    {
+      "id": "panel-keep",
+      "kind": "page",
+      "url": "https://www.google.co.jp/search?q=vitrina&tbs=qdr:m",
+      "fixture": "search-results.html",
+      "waitFor": "#searchclock-root",
+      "syncStorage": {
+        "qdr": "m",
+        "keepSetting": true
+      },
+      "clip": {
+        "selector": "#searchclock-root",
+        "pad": {
+          "top": 64,
+          "right": 32,
+          "bottom": 64,
+          "left": 96
+        }
+      }
+    },
+    {
+      "id": "results-wide",
+      "kind": "page",
+      "url": "https://www.google.co.jp/search?q=vitrina&tbs=qdr:w",
+      "fixture": "search-results.html",
+      "waitFor": "#searchclock-root",
+      "width": 1120,
+      "height": 524
+    }
+  ],
+  "slides": [
+    {
+      "layout": "hero",
+      "capture": "panel-default",
+      "tagline": {
+        "msg": "appDescription"
+      },
+      "chips": [
+        {
+          "en": "3 hours to 3 years",
+          "ja": "3時間〜3年の期間指定",
+          "zh_TW": "3小時至3年的時間範圍",
+          "de": "3 Stunden bis 3 Jahre",
+          "zh_CN": "3小时至3年的时间范围",
+          "ko": "3시간~3년 기간 지정",
+          "es": "De 3 horas a 3 años",
+          "fr": "De 3 heures à 3 ans",
+          "pt_BR": "De 3 horas a 3 anos"
+        },
+        {
+          "en": "Once or kept",
+          "ja": "一回限り／維持を選択",
+          "zh_TW": "單次或保持套用",
+          "de": "Einmalig oder dauerhaft",
+          "zh_CN": "单次或持续应用",
+          "ko": "한 번만 또는 계속 유지",
+          "es": "Una vez o de forma continua",
+          "fr": "Une fois ou en continu",
+          "pt_BR": "Uma vez ou de forma contínua"
+        },
+        {
+          "en": "Light and dark themes",
+          "ja": "ライト・ダーク対応",
+          "zh_TW": "支援淺色與深色",
+          "de": "Helles und dunkles Design",
+          "zh_CN": "支持浅色和深色",
+          "ko": "라이트·다크 테마 지원",
+          "es": "Temas claro y oscuro",
+          "fr": "Thèmes clair et sombre",
+          "pt_BR": "Temas claro e escuro"
+        }
+      ]
+    },
+    {
+      "layout": "feature",
+      "capture": "panel-keep",
+      "kicker": {
+        "msg": "keepLabel"
+      },
+      "title": {
+        "en": "Keep your period for the next search",
+        "ja": "選んだ期間を次の検索にも",
+        "zh_TW": "下一次搜尋也沿用所選範圍",
+        "de": "Zeitraum auch für die nächste Suche",
+        "zh_CN": "下一次搜索也沿用所选范围",
+        "ko": "선택한 기간을 다음 검색에도",
+        "es": "Mantenga el período en la siguiente búsqueda",
+        "fr": "Gardez votre période pour la recherche suivante",
+        "pt_BR": "Mantenha o período na próxima pesquisa"
+      },
+      "body": {
+        "en": "With Keep period on, the same range applies to your next search. Off, it applies once.",
+        "ja": "「期間を維持」をオンにすると、次の検索にも同じ期間を適用します。オフなら一回限りです。",
+        "zh_TW": "開啟「保持時間範圍」後，下一次搜尋也會套用同一範圍；關閉時只套用一次。",
+        "de": "Mit „Zeitraum beibehalten“ gilt derselbe Zeitraum auch für die nächste Suche. Ausgeschaltet gilt er nur einmal.",
+        "zh_CN": "开启“保持时间范围”后，下一次搜索也会应用同一范围；关闭时只应用一次。",
+        "ko": "“기간 유지”를 켜면 다음 검색에도 같은 기간이 적용됩니다. 끄면 한 번만 적용됩니다.",
+        "es": "Con «Mantener período» activado, el mismo período se aplica a su siguiente búsqueda. Desactivado, se aplica una sola vez.",
+        "fr": "Avec « Conserver la période » activé, la même période s’applique à votre prochaine recherche. Désactivé, elle ne s’applique qu’une fois.",
+        "pt_BR": "Com “Manter período” ativado, o mesmo período vale para a próxima pesquisa. Desativado, vale só uma vez."
+      },
+      "bullets": [
+        {
+          "en": "No reload after results load",
+          "ja": "結果の読み込み後に再読み込みしません",
+          "zh_TW": "結果載入後不會重新整理頁面",
+          "de": "Kein Neuladen nach dem Laden der Ergebnisse",
+          "zh_CN": "结果加载后不会刷新页面",
+          "ko": "결과를 불러온 뒤에는 새로고침하지 않습니다",
+          "es": "Sin recargas una vez cargados los resultados",
+          "fr": "Aucun rechargement après l’affichage des résultats",
+          "pt_BR": "Sem recarregar depois que os resultados carregam"
+        },
+        {
+          "en": "Changing the period in Google's tools turns Keep off",
+          "ja": "Googleの検索ツールで期間を変えると維持を解除",
+          "zh_TW": "在Google搜尋工具變更範圍時會解除保持",
+          "de": "Zeitraumänderung in den Google-Tools beendet das Beibehalten",
+          "zh_CN": "在Google搜索工具中更改范围会解除保持",
+          "ko": "Google 검색 도구에서 기간을 바꾸면 유지가 해제됩니다",
+          "es": "Cambiar el período en las herramientas de Google desactiva Mantener",
+          "fr": "Modifier la période dans les outils Google désactive la conservation",
+          "pt_BR": "Mudar o período nas ferramentas do Google desativa o Manter"
+        },
+        {
+          "en": "Other filters like image size and sort order stay",
+          "ja": "画像サイズや並び順など、期間以外の条件は保持",
+          "zh_TW": "圖片尺寸、排序等其他條件會保留",
+          "de": "Andere Filter wie Bildgröße und Sortierung bleiben erhalten",
+          "zh_CN": "图片尺寸、排序等其他条件会保留",
+          "ko": "이미지 크기·정렬 등 기간 외 조건은 유지",
+          "es": "Otros filtros, como el tamaño de imagen y el orden, se conservan",
+          "fr": "Les autres filtres, comme la taille des images et le tri, sont conservés",
+          "pt_BR": "Outros filtros, como tamanho da imagem e ordenação, são mantidos"
+        }
+      ]
+    },
+    {
+      "layout": "wide",
+      "capture": "results-wide",
+      "title": {
+        "en": "Pick a period beside your results",
+        "ja": "検索結果の横で、期間を選ぶ",
+        "zh_TW": "在搜尋結果旁選擇時間範圍",
+        "de": "Zeitraum direkt neben den Ergebnissen wählen",
+        "zh_CN": "在搜索结果旁选择时间范围",
+        "ko": "검색 결과 옆에서 기간 선택",
+        "es": "Elija el período junto a los resultados",
+        "fr": "Choisissez la période à côté des résultats",
+        "pt_BR": "Escolha o período ao lado dos resultados"
+      }
+    }
+  ],
+  "tiles": {
+    "tagline": "Lock Google search to your time period",
+    "capture": "panel-default"
+  }
+}

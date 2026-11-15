@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="vitrina-fixture" content="search-results">
+<title></title>
+<!--
+  ストア画像用の固定ページ（検索結果の中立的な骨組み）。
+  文字・ロゴ・商標は描かない（灰色のバーだけ）。SearchClock の注入先 #center_col を、
+  実際の検索結果ページと同じく「position: relative・右に 380px 以上の余白」で置き、パネルが右横に出るようにする。
+-->
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: #fff; overflow: hidden; }
+  .top { height: 76px; display: flex; align-items: center; padding: 0 40px; gap: 28px; border-bottom: 1px solid #ebebeb; }
+  .logo { width: 92px; height: 28px; border-radius: 6px; background: #e8eaed; }
+  .box { width: 560px; height: 44px; border-radius: 22px; border: 1px solid #dfe1e5; box-shadow: 0 1px 6px rgba(32, 33, 36, .14); }
+  .avatar { margin-left: auto; width: 32px; height: 32px; border-radius: 50%; background: #dadce0; }
+  .tabs { display: flex; gap: 28px; padding: 0 40px; height: 44px; align-items: flex-end; border-bottom: 1px solid #ebebeb; }
+  .tabs i { display: block; width: 52px; height: 8px; border-radius: 4px; background: #e8eaed; margin-bottom: 18px; }
+  .tabs i:first-child { background: #bdc1c6; box-shadow: 0 17px 0 -1px #4285f4; }
+  #rcnt { padding: 28px 0 0 40px; }
+  #center_col { position: relative; width: 640px; }
+  .r { margin-bottom: 26px; }
+  .r .site { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .r .site b { width: 22px; height: 22px; border-radius: 50%; background: #e8eaed; }
+  .r .site i { width: 150px; height: 9px; border-radius: 5px; background: #e8eaed; }
+  .r .t { height: 14px; width: 78%; border-radius: 7px; background: #c6dafc; margin-bottom: 11px; }
+  .r .l { height: 8px; border-radius: 4px; background: #eceef0; margin-bottom: 7px; }
+  .r .l:nth-child(4) { width: 92%; }
+  .r .l:nth-child(5) { width: 64%; }
+</style>
+</head>
+<body>
+  <div class="top"><div class="logo"></div><div class="box"></div><div class="avatar"></div></div>
+  <div class="tabs"><i></i><i></i><i></i><i></i><i></i></div>
+  <div id="rcnt">
+    <div id="center_col">
+      <div class="r"><div class="site"><b></b><i></i></div><div class="t"></div><div class="l"></div><div class="l"></div><div class="l"></div></div>
+      <div class="r"><div class="site"><b></b><i></i></div><div class="t" style="width:66%"></div><div class="l"></div><div class="l"></div><div class="l"></div></div>
+      <div class="r"><div class="site"><b></b><i></i></div><div class="t" style="width:84%"></div><div class="l"></div><div class="l"></div><div class="l"></div></div>
+    </div>
+  </div>
+</body>
+</html>
