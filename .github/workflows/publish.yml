@@ -1,4 +1,7 @@
 name: Publish to Chrome Web Store
+# CWS は「アップロード」と「審査への申請」を別 workflow に分けている。
+# この workflow は検証済みZIPを下書きとしてアップロードするだけで、申請しない。
+# 申請は掲載画像などを Dashboard で整えた後に、cws-submit.yml を手動で実行する。
 
 on:
   push:
@@ -15,7 +18,7 @@ concurrency:
 
 jobs:
   publish:
-    name: Chrome Web Store 公開
+    name: Chrome Web Store アップロード（申請は cws-submit.yml）
     runs-on: ubuntu-latest
     steps:
       - name: Checkout release commit with native git
@@ -76,7 +79,7 @@ jobs:
 
       - name: zip パッケージを作成
         run: |
-          zip -r search-clock.zip manifest.json icons src \
+          zip -r search-clock.zip manifest.json _locales icons src \
             -x "*.DS_Store" "*.swp" "*~" "*.test.js" "*.test.mjs"
           ls -lh search-clock.zip
 
@@ -97,7 +100,7 @@ jobs:
           assert.equal(new Set(entries).size, entries.length, 'ZIP内の重複エントリ');
           const files = entries.filter(entry => !entry.endsWith('/')).sort();
           const source = JSON.parse(readFileSync('manifest.json', 'utf8'));
-          const tracked = execFileSync('git', ['ls-files', '-z', 'manifest.json', 'icons', 'src'], { encoding: 'utf8' })
+          const tracked = execFileSync('git', ['ls-files', '-z', 'manifest.json', '_locales', 'icons', 'src'], { encoding: 'utf8' })
             .split('\0').filter(Boolean)
             .filter(entry => !/(?:\.DS_Store|\.swp|~|\.test\.js|\.test\.mjs)$/.test(entry));
           const expected = [...new Set([...tracked, ...Object.values(source.action.default_icon)])].sort();
@@ -118,7 +121,7 @@ jobs:
           console.log(JSON.stringify({ source: process.env.GITHUB_SHA, version: manifest.version, files: files.length, sha256 }));
           NODE
 
-      - name: Chrome Web Store にアップロード & 公開
+      - name: Chrome Web Store にアップロード（下書き）
         env:
           CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
           CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
@@ -128,4 +131,4 @@ jobs:
           PACKAGE_SHA256: ${{ steps.package.outputs.sha256 }}
         run: |
           pwsh -NoProfile -File scripts/Test-PublishCws.ps1 -WorkDirectory "$RUNNER_TEMP/cws-publisher-tests"
-          pwsh -NoProfile -File scripts/Publish-Cws.ps1 -Archive "search-clock.zip" -ExpectedSha256 "$PACKAGE_SHA256"
+          pwsh -NoProfile -File scripts/Publish-Cws.ps1 -Archive "search-clock.zip" -ExpectedSha256 "$PACKAGE_SHA256" -Stage Upload
