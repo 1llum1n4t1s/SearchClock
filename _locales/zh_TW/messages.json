@@ -1,0 +1,131 @@
+{
+  "appName": {
+    "message": "SearchClock"
+  },
+  "appDescription": {
+    "message": "固定 Google 搜尋的時間範圍，讓每次搜尋結果都始終限定在所選的時間區間內。"
+  },
+  "presetOffLabel": {
+    "message": "關閉"
+  },
+  "presetOffShort": {
+    "message": "關閉"
+  },
+  "presetH1Label": {
+    "message": "1小時內"
+  },
+  "presetH3Label": {
+    "message": "3小時內"
+  },
+  "presetH3Short": {
+    "message": "3小時"
+  },
+  "presetH12Label": {
+    "message": "12小時內"
+  },
+  "presetH12Short": {
+    "message": "12小時"
+  },
+  "presetD1Label": {
+    "message": "1天內"
+  },
+  "presetD1Short": {
+    "message": "1天"
+  },
+  "presetD3Label": {
+    "message": "3天內"
+  },
+  "presetD3Short": {
+    "message": "3天"
+  },
+  "presetW1Label": {
+    "message": "1週內"
+  },
+  "presetW1Short": {
+    "message": "1週"
+  },
+  "presetM1Label": {
+    "message": "1個月內"
+  },
+  "presetM1Short": {
+    "message": "1個月"
+  },
+  "presetM3Label": {
+    "message": "3個月內"
+  },
+  "presetM3Short": {
+    "message": "3個月"
+  },
+  "presetM6Label": {
+    "message": "6個月內"
+  },
+  "presetM6Short": {
+    "message": "6個月"
+  },
+  "presetY1Label": {
+    "message": "1年內"
+  },
+  "presetY1Short": {
+    "message": "1年"
+  },
+  "presetY3Label": {
+    "message": "3年內"
+  },
+  "presetY3Short": {
+    "message": "3年"
+  },
+  "statusNone": {
+    "message": "未指定時間範圍"
+  },
+  "statusGoogleSpecified": {
+    "message": "Google 指定（$QDR$）",
+    "placeholders": {
+      "QDR": {
+        "content": "$1",
+        "example": "qdr:h2"
+      }
+    }
+  },
+  "modeChipKeep": {
+    "message": "已保持"
+  },
+  "modeChipOnce": {
+    "message": "僅一次"
+  },
+  "keepLabel": {
+    "message": "保持時間範圍"
+  },
+  "keepTitleGoogleSet": {
+    "message": "目前顯示的是 Google 指定的時間範圍（要保持請選擇預設）"
+  },
+  "keepTitleNeedPeriod": {
+    "message": "請先選擇時間範圍（未設定時無法保持）"
+  },
+  "keepTitleKeeping": {
+    "message": "正在保持時間範圍：下次搜尋時仍會套用"
+  },
+  "keepTitleOnce": {
+    "message": "僅一次：下次搜尋時自動關閉"
+  },
+  "badgeTitleKeeping": {
+    "message": "SearchClock — 目前：$PERIOD$（保持中）",
+    "placeholders": {
+      "PERIOD": {
+        "content": "$1",
+        "example": "Within 1 year"
+      }
+    }
+  },
+  "badgeTitleKeepNoPeriod": {
+    "message": "SearchClock — 保持模式（未指定時間範圍）"
+  },
+  "badgeTitleOnce": {
+    "message": "SearchClock — 僅一次模式（每次搜尋後自動關閉）"
+  },
+  "kagayoiSupportContact": {
+    "message": "聯絡支援"
+  },
+  "kagayoiSupportRate": {
+    "message": "請為我們評分！"
+  }
+}

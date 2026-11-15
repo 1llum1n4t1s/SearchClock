@@ -9,7 +9,7 @@
     "test": "bun test src/shared/presets.test.js src/background/background.test.js src/content/content.test.mjs",
     "check-domains": "bun scripts/check-domains.js",
     "generate-icons": "bun scripts/generate-icons.js",
-    "generate-screenshots": "bun webstore/generate-screenshots.js",
+    "generate-screenshots": "bun webstore/vitrina/vitrina.mjs generate",
     "build": "bun --bun run check-domains && bun --bun run generate-icons && bun --bun run generate-screenshots"
   },
   "devDependencies": {

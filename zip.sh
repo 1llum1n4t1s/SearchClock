@@ -23,6 +23,7 @@ fi
 
 zip -r ./search-clock.zip \
   manifest.json \
+  _locales/ \
   icons/ \
   src/ \
   -x "*.DS_Store" "*.swp" "*~" "*.test.js" "*.test.mjs"

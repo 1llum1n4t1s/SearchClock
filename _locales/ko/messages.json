@@ -1,0 +1,131 @@
+{
+  "appName": {
+    "message": "SearchClock"
+  },
+  "appDescription": {
+    "message": "Google 검색의 기간 지정을 고정합니다. 검색 결과를 항상 지정한 기간 안으로 좁혀 줍니다."
+  },
+  "presetOffLabel": {
+    "message": "끄기"
+  },
+  "presetOffShort": {
+    "message": "끄기"
+  },
+  "presetH1Label": {
+    "message": "1시간 이내"
+  },
+  "presetH3Label": {
+    "message": "3시간 이내"
+  },
+  "presetH3Short": {
+    "message": "3시간"
+  },
+  "presetH12Label": {
+    "message": "12시간 이내"
+  },
+  "presetH12Short": {
+    "message": "12시간"
+  },
+  "presetD1Label": {
+    "message": "1일 이내"
+  },
+  "presetD1Short": {
+    "message": "1일"
+  },
+  "presetD3Label": {
+    "message": "3일 이내"
+  },
+  "presetD3Short": {
+    "message": "3일"
+  },
+  "presetW1Label": {
+    "message": "1주 이내"
+  },
+  "presetW1Short": {
+    "message": "1주"
+  },
+  "presetM1Label": {
+    "message": "1개월 이내"
+  },
+  "presetM1Short": {
+    "message": "1개월"
+  },
+  "presetM3Label": {
+    "message": "3개월 이내"
+  },
+  "presetM3Short": {
+    "message": "3개월"
+  },
+  "presetM6Label": {
+    "message": "6개월 이내"
+  },
+  "presetM6Short": {
+    "message": "6개월"
+  },
+  "presetY1Label": {
+    "message": "1년 이내"
+  },
+  "presetY1Short": {
+    "message": "1년"
+  },
+  "presetY3Label": {
+    "message": "3년 이내"
+  },
+  "presetY3Short": {
+    "message": "3년"
+  },
+  "statusNone": {
+    "message": "기간 지정 없음"
+  },
+  "statusGoogleSpecified": {
+    "message": "Google 지정($QDR$)",
+    "placeholders": {
+      "QDR": {
+        "content": "$1",
+        "example": "qdr:h2"
+      }
+    }
+  },
+  "modeChipKeep": {
+    "message": "유지 중"
+  },
+  "modeChipOnce": {
+    "message": "1회만"
+  },
+  "keepLabel": {
+    "message": "기간 유지"
+  },
+  "keepTitleGoogleSet": {
+    "message": "Google에서 지정한 기간을 표시 중입니다(유지하려면 프리셋을 선택하세요)"
+  },
+  "keepTitleNeedPeriod": {
+    "message": "먼저 기간을 선택하세요(미설정 상태에서는 유지할 수 없습니다)"
+  },
+  "keepTitleKeeping": {
+    "message": "기간 유지 중: 다음 검색에도 설정이 적용됩니다"
+  },
+  "keepTitleOnce": {
+    "message": "1회만: 다음 검색에서 자동으로 꺼집니다"
+  },
+  "badgeTitleKeeping": {
+    "message": "SearchClock — 현재: $PERIOD$(유지 중)",
+    "placeholders": {
+      "PERIOD": {
+        "content": "$1",
+        "example": "Within 1 year"
+      }
+    }
+  },
+  "badgeTitleKeepNoPeriod": {
+    "message": "SearchClock — 유지 모드(기간 지정 없음)"
+  },
+  "badgeTitleOnce": {
+    "message": "SearchClock — 1회만 모드(검색할 때마다 자동으로 꺼짐)"
+  },
+  "kagayoiSupportContact": {
+    "message": "문의하기"
+  },
+  "kagayoiSupportRate": {
+    "message": "평가해 주세요!"
+  }
+}

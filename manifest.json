@@ -1,7 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "SearchClock",
-  "description": "Google検索の期間指定を固定化。検索結果を常に指定期間内に絞り込みます。",
+  "default_locale": "en",
+  "name": "__MSG_appName__",
+  "description": "__MSG_appDescription__",
   "version": "1.0.14",
   "action": {
     "default_icon": {
@@ -9,7 +10,7 @@
       "48": "icons/icon-48.png",
       "128": "icons/icon-128.png"
     },
-    "default_title": "SearchClock"
+    "default_title": "__MSG_appName__"
   },
   "icons": {
     "16": "icons/icon-16.png",
@@ -34,7 +35,7 @@
         "*://www.google.co.kr/search*",
         "*://www.google.com.br/search*"
       ],
-      "js": ["src/shared/presets.js", "src/content/content.js"],
+      "js": ["src/shared/ui-localizer.js", "src/shared/presets.js", "src/content/content.js"],
       "run_at": "document_idle"
     }
   ],

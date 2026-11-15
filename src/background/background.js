@@ -2,7 +2,7 @@
 // declarativeNetRequestを使って検索前にURLを書き換える
 // アイコンクリックで Google を新タブで開き、バッジで現在の qdr を表示する
 
-importScripts('../shared/presets.js');
+importScripts('../shared/ui-localizer.js', '../shared/presets.js');
 
 const GOOGLE_DOMAINS = [
   // NOTE: manifest.json の content_scripts.matches / host_permissions と必ず同期すること。
@@ -159,23 +159,29 @@ async function updateRules(qdr, keepSetting) {
   badgeUpdated = await refreshBadge(qdr, keepSetting);
 }
 
+// 直近に適用したバッジ状態（言語変更時にツールチップだけ作り直すため）
+let lastBadgeState = null;
+
 // バッジ + ツールチップを更新
 //   keepSetting=ON + qdr あり: 紫背景で qdr ラベル（"1y" 等）を表示
 //   keepSetting=ON + qdr なし: 紫背景で "·"（モード可視化）
 //   keepSetting=OFF: 灰背景で "·"（once モードを示す控えめインジケータ）
 async function refreshBadge(qdr, keepSetting) {
+  lastBadgeState = { qdr, keepSetting };
   try {
+    // 保存済みの言語（辞書）が読み込まれてからツールチップの文言を引く
+    await Localizer.ready;
     const onWithQdr = keepSetting && qdr;
     const enLabel = QDR_EN_LABELS[qdr] || qdr;
-    const jpLabel = QDR_LABELS[qdr] || qdr;
+    const periodLabel = QDR_LABEL_KEYS[qdr] ? Localizer.t(QDR_LABEL_KEYS[qdr], undefined, qdr) : qdr;
 
     const text = onWithQdr ? enLabel : '·';
     const color = keepSetting ? BADGE_BG : BADGE_BG_OFF;
     const title = onWithQdr
-      ? `SearchClock — 現在: ${jpLabel}（維持中）`
+      ? Localizer.t('badgeTitleKeeping', periodLabel, `SearchClock — ${periodLabel}`)
       : keepSetting
-        ? 'SearchClock — 維持モード(期間指定なし)'
-        : 'SearchClock — 一回限りモード(検索ごとに自動オフ)';
+        ? Localizer.t('badgeTitleKeepNoPeriod', undefined, 'SearchClock — Keep mode (no period set)')
+        : Localizer.t('badgeTitleOnce', undefined, 'SearchClock — Once-only mode (turns off after each search)');
 
     // 3 つの chrome.action API は相互独立なので並列実行（直列だと 3 RTT、並列で 1 RTT）
     await Promise.all([
@@ -206,8 +212,24 @@ function initRules() {
   return enqueueUpdateRules();
 }
 
-chrome.runtime.onInstalled.addListener(initRules);
+// 更新後は同梱辞書が古い可能性があるため、作り直してからルール・ツールチップを確定する
+async function initOnInstalled() {
+  try {
+    await Localizer.ready;
+    await Localizer.ensureFresh();
+  } catch (err) {
+    console.warn('[SearchClock] 言語辞書の更新失敗:', err?.message ?? err);
+  }
+  return initRules();
+}
+
+chrome.runtime.onInstalled.addListener(initOnInstalled);
 chrome.runtime.onStartup.addListener(initRules);
+
+// 言語が変わったらツールチップを引き直す
+Localizer.onChange(() => {
+  if (lastBadgeState) refreshBadge(lastBadgeState.qdr, lastBadgeState.keepSetting);
+});
 
 // 拡張機能アイコンクリック → Google を新タブで開く（popup を廃止したため）
 // NOTE: manifest.json に default_popup を追加すると onClicked は発火しなくなる Chrome 仕様

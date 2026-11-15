@@ -16,8 +16,8 @@ SearchClock は、Google Web 検索の `tbs` クエリパラメータへ期間�
 | `src/content/content.js` | Google 検索結果へ closed Shadow DOM の設定パネルを注入する。URLから表示状態を導出し、プリセット選択、維持モード切替、Google検索ツールとの後勝ち連携を処理する。 |
 | `src/**/*.test.*` | 共有プリセットと `tbs` 解析、サービスワーカーの状態競合、コンテンツUIの再注入を回帰テストで検証する。 |
 | `scripts/` | Google ドメイン定義の同期検査と、SVGから配布用アイコンを生成する。 |
-| `webstore/` | Chrome Web Store 掲載文と画像テンプレートを保持し、Puppeteerで掲載画像を生成する。製品ランタイムには含めない。 |
-| `zip.ps1` / `zip.sh` | `manifest.json`、ランタイム用の `src/`、`icons/` だけを配布ZIPへ格納し、テストは除外する。 |
+| `webstore/` | Chrome Web Store 掲載文と掲載画像の設定（`store-assets.json`・固定ページ `fixtures/`）、画像生成キット（`vitrina/`、正本は Kagayoi.Support の逐語コピー）を保持し、実拡張を撮影して9言語の掲載画像を生成する。製品ランタイムには含めない。 |
+| `zip.ps1` / `zip.sh` | `manifest.json`、`_locales/`、ランタイム用の `src/`、`icons/` だけを配布ZIPへ格納し、テストは除外する。 |
 | `.github/workflows/publish.yml` | `release/**` の push を契機に検証・パッケージングし、Chrome Web Storeへ公開する。Actionsはcommit SHAで固定する。 |
 
 作業コマンド、パッケージングと検証手順は [AGENTS.md](AGENTS.md) を正本とする。公開ワークフローではテスト・ドメイン同期検査・アイコン生成を通してからZIPを作り、ストア画像は生成しない。`release/<manifest.json の version>` とブランチ名が一致しない場合は公開を停止する。

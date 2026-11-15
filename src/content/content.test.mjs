@@ -2,25 +2,32 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import fs from 'node:fs';
 import puppeteer from 'puppeteer';
+import { createSeededProfile, removeSeededProfile } from '../../scripts/chrome-profile-seed.mjs';
 
 const TEST_FILE = fileURLToPath(import.meta.url);
 const REPO_ROOT = path.resolve(path.dirname(TEST_FILE), '../..');
+const EN_MESSAGES = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, '_locales/en/messages.json'), 'utf8'));
 
 test('維持変更・未知qdr・修飾クリック・再注入の契約を保つ', { timeout: 30_000 }, async (t) => {
+  // Windows アカウントのロック防止（必須）: userDataDir 未指定だと新規プロファイルごとに空パスワード確認（LogonUser 失敗）が走るため、
+  // シード済みの一時プロファイルを渡し、終了時に片付ける。理由は scripts/chrome-profile-seed.mjs を参照。
+  const userDataDir = createSeededProfile('searchclock-test');
   const browser = await puppeteer.launch({
     headless: true,
+    userDataDir,
     ...(process.env.PUPPETEER_EXECUTABLE_PATH
       ? { executablePath: process.env.PUPPETEER_EXECUTABLE_PATH }
       : { channel: 'chrome' }),
   });
-  t.after(() => browser.close());
+  t.after(async () => { await browser.close(); removeSeededProfile(userDataDir); });
   const page = await browser.newPage();
   // 右側に列を置ける幅にして、検索結果列の右外へ置くサイド配置を検証する
   await page.setViewport({ width: 1400, height: 900 });
   await page.goto(`${pathToFileURL(TEST_FILE).href}?q=test&tbs=qdr:y`);
   await page.setContent('<div id="rcnt"><main id="center_col" style="position:relative;width:650px;margin-left:180px"><div id="first-result">result</div></main></div>');
-  await page.evaluate(() => {
+  await page.evaluate((enMessages) => {
     window.__settingsMessages = [];
     const storageListeners = new Set();
     const chromeApi = window.chrome ?? {};
@@ -28,7 +35,17 @@ test('維持変更・未知qdr・修飾クリック・再注入の契約を保�
       Object.defineProperty(window, 'chrome', { value: chromeApi });
     }
     Object.assign(chromeApi, {
+      // ui-localizer.js が使う最小の i18n / storage.local / manifest（辞書は en）
+      i18n: {
+        getMessage: (key, subs) => {
+          const entry = enMessages[key];
+          if (!entry) return '';
+          return entry.message.replace(/$[A-Z]+$/g, [].concat(subs ?? '')[0] ?? '');
+        },
+        getUILanguage: () => 'en',
+      },
       runtime: {
+        getManifest: () => ({ version: 'test' }),
         lastError: undefined,
         sendMessage: (msg, callback) => {
           window.__settingsMessages.push(msg);
@@ -36,6 +53,7 @@ test('維持変更・未知qdr・修飾クリック・再注入の契約を保�
         },
       },
       storage: {
+        local: { get: async () => ({}), set: async () => {}, remove: async () => {} },
         sync: {
           get: (defaults, callback) => callback({ ...defaults, qdr: 'y', keepSetting: false }),
           set: async () => {},
@@ -47,13 +65,16 @@ test('維持変更・未知qdr・修飾クリック・再注入の契約を保�
       },
     });
     const attachShadow = Element.prototype.attachShadow;
-    Element.prototype.attachShadow = function attachOpenShadow(init) {
+      Element.prototype.attachShadow = function attachOpenShadow(init) {
       return attachShadow.call(this, { ...init, mode: 'open' });
     };
-  });
+  }, EN_MESSAGES);
 
+  await page.addScriptTag({ path: path.join(REPO_ROOT, 'src/shared/ui-localizer.js') });
   await page.addScriptTag({ path: path.join(REPO_ROOT, 'src/shared/presets.js') });
   await page.addScriptTag({ path: path.join(REPO_ROOT, 'src/content/content.js') });
+  // 注入は Localizer.ready の後に非同期で行われる
+  await page.waitForSelector('#searchclock-root');
   assert.equal(await page.evaluate(() => document.querySelectorAll('#searchclock-root').length), 1);
 
   // パネルは検索結果の外側（右）に置かれ、1件目の位置を動かさない
@@ -110,7 +131,7 @@ test('維持変更・未知qdr・修飾クリック・再注入の契約を保�
     };
   });
   assert.deepEqual(unknownQdrState, {
-    status: '1時間以内',
+    status: 'Within 1 hour',
     tbs: 'qdr:h',
     active: true,
     keepDisabled: true,

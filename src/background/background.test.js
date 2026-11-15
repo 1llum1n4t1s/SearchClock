@@ -5,6 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const PRESETS_SOURCE = fs.readFileSync(path.join(__dirname, '../shared/presets.js'), 'utf8');
+const EN_MESSAGES = JSON.parse(fs.readFileSync(path.join(__dirname, '../../_locales/en/messages.json'), 'utf8'));
 const BACKGROUND_SOURCE = fs.readFileSync(path.join(__dirname, 'background.js'), 'utf8');
 
 function delay(ms) {
@@ -66,6 +67,17 @@ function createHarness({ failDynamicUpdates = 0, setDelay = () => 0 } = {}) {
     clearTimeout,
     console: { warn: () => {} },
     importScripts: () => {},
+    // 実体は ui-localizer.js。ここでは en 辞書を引くだけの代役で、キー欠落も検出する
+    Localizer: {
+      ready: Promise.resolve(),
+      ensureFresh: async () => {},
+      onChange: () => {},
+      t: (key, subs) => {
+        const entry = EN_MESSAGES[key];
+        assert.ok(entry, `en に無いキー: ${key}`);
+        return entry.message.replace(/$[A-Z]+$/g, subs ?? '');
+      },
+    },
     queueMicrotask,
     setTimeout,
   });

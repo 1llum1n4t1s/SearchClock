@@ -1,0 +1,131 @@
+{
+  "appName": {
+    "message": "SearchClock"
+  },
+  "appDescription": {
+    "message": "Fixa o filtro de período da pesquisa do Google e limita sempre os resultados ao período que você escolher."
+  },
+  "presetOffLabel": {
+    "message": "Desativado"
+  },
+  "presetOffShort": {
+    "message": "Desat."
+  },
+  "presetH1Label": {
+    "message": "Última hora"
+  },
+  "presetH3Label": {
+    "message": "Últimas 3 horas"
+  },
+  "presetH3Short": {
+    "message": "3 h"
+  },
+  "presetH12Label": {
+    "message": "Últimas 12 horas"
+  },
+  "presetH12Short": {
+    "message": "12 h"
+  },
+  "presetD1Label": {
+    "message": "Último dia"
+  },
+  "presetD1Short": {
+    "message": "1 dia"
+  },
+  "presetD3Label": {
+    "message": "Últimos 3 dias"
+  },
+  "presetD3Short": {
+    "message": "3 dias"
+  },
+  "presetW1Label": {
+    "message": "Última semana"
+  },
+  "presetW1Short": {
+    "message": "1 sem."
+  },
+  "presetM1Label": {
+    "message": "Último mês"
+  },
+  "presetM1Short": {
+    "message": "1 mês"
+  },
+  "presetM3Label": {
+    "message": "Últimos 3 meses"
+  },
+  "presetM3Short": {
+    "message": "3 meses"
+  },
+  "presetM6Label": {
+    "message": "Últimos 6 meses"
+  },
+  "presetM6Short": {
+    "message": "6 meses"
+  },
+  "presetY1Label": {
+    "message": "Último ano"
+  },
+  "presetY1Short": {
+    "message": "1 ano"
+  },
+  "presetY3Label": {
+    "message": "Últimos 3 anos"
+  },
+  "presetY3Short": {
+    "message": "3 anos"
+  },
+  "statusNone": {
+    "message": "Nenhum período definido"
+  },
+  "statusGoogleSpecified": {
+    "message": "Definido pelo Google ($QDR$)",
+    "placeholders": {
+      "QDR": {
+        "content": "$1",
+        "example": "qdr:h2"
+      }
+    }
+  },
+  "modeChipKeep": {
+    "message": "Mantido"
+  },
+  "modeChipOnce": {
+    "message": "Uma vez"
+  },
+  "keepLabel": {
+    "message": "Manter período"
+  },
+  "keepTitleGoogleSet": {
+    "message": "Exibindo um período definido pelo Google (escolha uma predefinição para mantê-lo)"
+  },
+  "keepTitleNeedPeriod": {
+    "message": "Escolha primeiro um período (não é possível manter sem definição)"
+  },
+  "keepTitleKeeping": {
+    "message": "Período mantido: também será aplicado na próxima pesquisa"
+  },
+  "keepTitleOnce": {
+    "message": "Apenas uma vez: desativa automaticamente na próxima pesquisa"
+  },
+  "badgeTitleKeeping": {
+    "message": "SearchClock — Atual: $PERIOD$ (mantido)",
+    "placeholders": {
+      "PERIOD": {
+        "content": "$1",
+        "example": "Within 1 year"
+      }
+    }
+  },
+  "badgeTitleKeepNoPeriod": {
+    "message": "SearchClock — Modo manter (nenhum período definido)"
+  },
+  "badgeTitleOnce": {
+    "message": "SearchClock — Modo de uma vez (desativa após cada pesquisa)"
+  },
+  "kagayoiSupportContact": {
+    "message": "Falar com o suporte"
+  },
+  "kagayoiSupportRate": {
+    "message": "Avalie-nos!"
+  }
+}

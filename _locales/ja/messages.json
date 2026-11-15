@@ -1,0 +1,131 @@
+{
+  "appName": {
+    "message": "SearchClock"
+  },
+  "appDescription": {
+    "message": "Google検索の期間指定を固定化。検索結果を常に指定期間内に絞り込みます。"
+  },
+  "presetOffLabel": {
+    "message": "オフ"
+  },
+  "presetOffShort": {
+    "message": "オフ"
+  },
+  "presetH1Label": {
+    "message": "1時間以内"
+  },
+  "presetH3Label": {
+    "message": "3時間以内"
+  },
+  "presetH3Short": {
+    "message": "3時間"
+  },
+  "presetH12Label": {
+    "message": "12時間以内"
+  },
+  "presetH12Short": {
+    "message": "12時間"
+  },
+  "presetD1Label": {
+    "message": "1日以内"
+  },
+  "presetD1Short": {
+    "message": "1日"
+  },
+  "presetD3Label": {
+    "message": "3日以内"
+  },
+  "presetD3Short": {
+    "message": "3日"
+  },
+  "presetW1Label": {
+    "message": "1週間以内"
+  },
+  "presetW1Short": {
+    "message": "1週間"
+  },
+  "presetM1Label": {
+    "message": "1ヶ月以内"
+  },
+  "presetM1Short": {
+    "message": "1ヶ月"
+  },
+  "presetM3Label": {
+    "message": "3ヶ月以内"
+  },
+  "presetM3Short": {
+    "message": "3ヶ月"
+  },
+  "presetM6Label": {
+    "message": "半年以内"
+  },
+  "presetM6Short": {
+    "message": "半年"
+  },
+  "presetY1Label": {
+    "message": "1年以内"
+  },
+  "presetY1Short": {
+    "message": "1年"
+  },
+  "presetY3Label": {
+    "message": "3年以内"
+  },
+  "presetY3Short": {
+    "message": "3年"
+  },
+  "statusNone": {
+    "message": "期間指定なし"
+  },
+  "statusGoogleSpecified": {
+    "message": "Google指定 ($QDR$)",
+    "placeholders": {
+      "QDR": {
+        "content": "$1",
+        "example": "qdr:h2"
+      }
+    }
+  },
+  "modeChipKeep": {
+    "message": "維持中"
+  },
+  "modeChipOnce": {
+    "message": "1回限り"
+  },
+  "keepLabel": {
+    "message": "期間を維持"
+  },
+  "keepTitleGoogleSet": {
+    "message": "Google側の期間指定を表示中です（維持するにはプリセットを選んでください）"
+  },
+  "keepTitleNeedPeriod": {
+    "message": "先に期間を選んでください（未設定では維持できません）"
+  },
+  "keepTitleKeeping": {
+    "message": "期間を維持中：次の検索でも設定が適用されます"
+  },
+  "keepTitleOnce": {
+    "message": "一回限り：次の検索で自動的にオフに戻ります"
+  },
+  "badgeTitleKeeping": {
+    "message": "SearchClock — 現在: $PERIOD$（維持中）",
+    "placeholders": {
+      "PERIOD": {
+        "content": "$1",
+        "example": "Within 1 year"
+      }
+    }
+  },
+  "badgeTitleKeepNoPeriod": {
+    "message": "SearchClock — 維持モード(期間指定なし)"
+  },
+  "badgeTitleOnce": {
+    "message": "SearchClock — 一回限りモード(検索ごとに自動オフ)"
+  },
+  "kagayoiSupportContact": {
+    "message": "お問い合わせ"
+  },
+  "kagayoiSupportRate": {
+    "message": "評価をお願いします！"
+  }
+}

@@ -28,13 +28,13 @@ try {
     if (-not $outputDirectory.PSIsContainer) { throw 'ZIPの保存先フォルダーが存在しません。' }
 
     $manifestPath = Join-Path $scriptDir 'manifest.json'
-    $sourceRoots = @((Join-Path $scriptDir 'icons'), (Join-Path $scriptDir 'src'))
+    $sourceRoots = @((Join-Path $scriptDir 'icons'), (Join-Path $scriptDir 'src'), (Join-Path $scriptDir '_locales'))
     if ($zipPath -eq $manifestPath) { throw 'manifest.json はZIPの保存先に指定できません。' }
     foreach ($root in $sourceRoots) {
         Assert-LocalPath $root
         $boundary = $root + [IO.Path]::DirectorySeparatorChar
         if ($zipPath -eq $root -or $zipPath.StartsWith($boundary, [StringComparison]::OrdinalIgnoreCase)) {
-            throw 'icons / src 内はZIPの保存先に指定できません。'
+            throw 'icons / src / _locales 内はZIPの保存先に指定できません。'
         }
     }
     Assert-LocalPath $manifestPath

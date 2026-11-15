@@ -2,24 +2,28 @@
 // content.js / background.js から共通で参照される単一ソース
 // 追加・変更はこのファイルだけ触ればよい
 
+// labelKey / shortKey は _locales の表示専用キー（検索・照合には使わない）。
+// en は chip の副表記とバッジ文字に使うコード（翻訳しない）。
 const PRESETS = [
-  { label: 'オフ',     shortLabel: 'オフ',  en: 'off', value: ''   },
-  { label: '3時間以内', shortLabel: '3時間', en: '3h',  value: 'h3' },
-  { label: '12時間以内', shortLabel: '12時間', en: '12h', value: 'h12' },
-  { label: '1日以内',   shortLabel: '1日',   en: '1d',  value: 'd'  },
-  { label: '3日以内',   shortLabel: '3日',   en: '3d',  value: 'd3' },
-  { label: '1週間以内', shortLabel: '1週間', en: '1w',  value: 'w'  },
-  { label: '1ヶ月以内', shortLabel: '1ヶ月', en: '1mo', value: 'm'  },
-  { label: '3ヶ月以内', shortLabel: '3ヶ月', en: '3mo', value: 'm3' },
-  { label: '半年以内',   shortLabel: '半年',   en: '6mo', value: 'm6' },
-  { label: '1年以内',   shortLabel: '1年',   en: '1y',  value: 'y'  },
-  { label: '3年以内',   shortLabel: '3年',   en: '3y',  value: 'y3' },
+  { labelKey: 'presetOffLabel', shortKey: 'presetOffShort', en: 'off', value: '' },
+  { labelKey: 'presetH3Label', shortKey: 'presetH3Short', en: '3h', value: 'h3' },
+  { labelKey: 'presetH12Label', shortKey: 'presetH12Short', en: '12h', value: 'h12' },
+  { labelKey: 'presetD1Label', shortKey: 'presetD1Short', en: '1d', value: 'd' },
+  { labelKey: 'presetD3Label', shortKey: 'presetD3Short', en: '3d', value: 'd3' },
+  { labelKey: 'presetW1Label', shortKey: 'presetW1Short', en: '1w', value: 'w' },
+  { labelKey: 'presetM1Label', shortKey: 'presetM1Short', en: '1mo', value: 'm' },
+  { labelKey: 'presetM3Label', shortKey: 'presetM3Short', en: '3mo', value: 'm3' },
+  { labelKey: 'presetM6Label', shortKey: 'presetM6Short', en: '6mo', value: 'm6' },
+  { labelKey: 'presetY1Label', shortKey: 'presetY1Short', en: '1y', value: 'y' },
+  { labelKey: 'presetY3Label', shortKey: 'presetY3Short', en: '3y', value: 'y3' },
 ];
 
-// qdr値 → 日本語ラベル
-const QDR_LABELS = Object.fromEntries(
-  PRESETS.filter(p => p.value).map(p => [p.value, p.label])
-);
+// qdr値 → 表示ラベルの _locales キー（実際の文言は Localizer.t で引く）。
+// 'h'（1時間以内）はプリセットに無い Google 標準値だが、状態表示のために持つ。
+const QDR_LABEL_KEYS = {
+  ...Object.fromEntries(PRESETS.filter(p => p.value).map(p => [p.value, p.labelKey])),
+  h: 'presetH1Label',
+};
 
 // qdr値 → 英語短縮ラベル（mono サブテキスト用、'' も含む）
 const QDR_EN_LABELS = Object.fromEntries(
@@ -83,7 +87,7 @@ function refPresetIndex(qdr) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     PRESETS,
-    QDR_LABELS,
+    QDR_LABEL_KEYS,
     QDR_EN_LABELS,
     VALID_QDR_VALUES,
     DEFAULT_SETTINGS,

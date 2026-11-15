@@ -1,6 +1,6 @@
 // SearchClock — Google検索ページに設定パネルを埋め込み
 // Shadow DOMでスタイルを完全に分離、Googleのライト/ダークテーマに自動対応
-// PRESETS / QDR_LABELS / VALID_QDR_VALUES / DEFAULT_SETTINGS / refPresetIndex /
+// PRESETS / QDR_LABEL_KEYS / VALID_QDR_VALUES / DEFAULT_SETTINGS / refPresetIndex /
 // TBS_PARAM_KEY / QDR_PREFIX / extractQdrFromTbs / isSameSearchContext は
 // src/shared/presets.js から注入される
 // （同一 content_scripts 内で共有、manifest.json の js 配列で先に読み込まれる）
@@ -16,10 +16,37 @@ function isDarkTheme() {
   return (parseInt(match[1]) + parseInt(match[2]) + parseInt(match[3])) / 3 < 128;
 }
 
+// 表示言語に合う書体へ切り替える。パネルの既定書体は和文向け（Noto Sans JP 等）なので、
+// 中国語・韓国語の文言が和文フォントの字形で描かれないよう、言語ごとの書体を CSS 変数で与える。
+// 該当しない言語（ja・欧州言語）は CSS 側の既定値のまま。lang 属性も表示言語へ合わせて字形選択を正す。
+const UI_FONT_STACKS = {
+  'zh-CN': '"PingFang SC", "Microsoft YaHei UI", "Segoe UI", system-ui, sans-serif',
+  'zh-TW': '"PingFang TC", "Microsoft JhengHei UI", "Segoe UI", system-ui, sans-serif',
+  ko: '"Apple SD Gothic Neo", "Malgun Gothic", "Segoe UI", system-ui, sans-serif',
+};
+
+function applyUiLanguage(root, shadow) {
+  let lang = '';
+  try {
+    lang = chrome.i18n.getUILanguage() || '';
+  } catch {
+    // 取得できない場合は既定の書体のまま
+  }
+  if (lang) root.lang = lang;
+  const stack = UI_FONT_STACKS[lang];
+  if (stack) {
+    // placeRoot が root の inline style を作り直すため、書体はインライン style ではなくシャドウ内の :host に置く
+    shadow.appendChild(Object.assign(document.createElement('style'), {
+      textContent: `:host { --sc-sans: ${stack}; --sc-serif: ${stack}; }`,
+    }));
+  }
+}
+
 function qdrToLabel(qdr) {
-  if (!qdr) return '期間指定なし';
-  if (qdr === 'h') return '1時間以内';
-  return QDR_LABELS[qdr] || `Google指定 (${QDR_PREFIX}${qdr})`;
+  if (!qdr) return Localizer.t('statusNone', undefined, 'No period set');
+  const key = QDR_LABEL_KEYS[qdr];
+  if (key) return Localizer.t(key, undefined, qdr);
+  return Localizer.t('statusGoogleSpecified', `${QDR_PREFIX}${qdr}`, `${QDR_PREFIX}${qdr}`);
 }
 
 // URL の tbs から表示用 qdr を抽出。プリセット外のGoogle標準値も実状態として保持する。
@@ -206,6 +233,8 @@ function initSearchClock() {
   shadow.appendChild(Object.assign(document.createElement('style'), {
     textContent: getStyles(isDarkTheme()),
   }));
+
+  applyUiLanguage(root, shadow);
 
   const panel = buildPanel();
   shadow.appendChild(panel);
@@ -445,14 +474,16 @@ function updateUI(refs, qdr, keepSetting) {
   refs.keepInput.checked = !!keepSetting;
   refs.keepWrap.title = !canKeep
     ? qdr
-      ? 'Google側の期間指定を表示中です（維持するにはプリセットを選んでください）'
-      : '先に期間を選んでください（未設定では維持できません）'
+      ? Localizer.t('keepTitleGoogleSet', undefined, 'Showing a period set by Google. Choose a preset to keep it.')
+      : Localizer.t('keepTitleNeedPeriod', undefined, "Choose a period first. It can't be kept while unset.")
     : keepSetting
-      ? '期間を維持中：次の検索でも設定が適用されます'
-      : '一回限り：次の検索で自動的にオフに戻ります';
+      ? Localizer.t('keepTitleKeeping', undefined, 'Keeping the period: it also applies to your next search.')
+      : Localizer.t('keepTitleOnce', undefined, 'Once only: turns off automatically on your next search.');
   // モード表示: ON=keep / OFF=once（常時表示で「壊れた」誤認を防ぐ）
   const mode = keepSetting ? 'keep' : 'once';
-  refs.modeChip.textContent = keepSetting ? '維持中' : '1回限り';
+  refs.modeChip.textContent = keepSetting
+    ? Localizer.t('modeChipKeep', undefined, 'Kept')
+    : Localizer.t('modeChipOnce', undefined, 'Once only');
   refs.modeChip.dataset.mode = mode;
 }
 
@@ -482,11 +513,11 @@ function buildDot() {
 }
 
 // プリセット 1 個分（radio + chip）。value='' は「オフ」として別配色にする。
-function buildPresetChip({ shortLabel, en, value }) {
+function buildPresetChip({ shortKey, en, value }) {
   return el('label', { className: 'sc-preset', dataset: value ? undefined : { off: 'true' } }, [
     el('input', { type: 'radio', name: 'qdr', value }),
     el('span', { className: 'sc-chip' }, [
-      el('span', { className: 'sc-chip-jp', text: shortLabel }),
+      el('span', { className: 'sc-chip-jp', text: Localizer.t(shortKey, undefined, en) }),
       el('span', { className: 'sc-chip-en', text: en }),
     ]),
   ]);
@@ -505,7 +536,7 @@ function buildPanel() {
       el('span', { className: 'sc-mark' }, [buildLogoSvg(12)]),
       el('span', { className: 'sc-title', text: 'SearchClock' }),
       // モードチップ（右寄せ・現在のモードを常時可視化、once 誤認防止）
-      el('span', { className: 'sc-mode-chip', id: 'sc-mode-chip', dataset: { mode: 'once' }, text: '1回限り' }),
+      el('span', { className: 'sc-mode-chip', id: 'sc-mode-chip', dataset: { mode: 'once' }, text: Localizer.t('modeChipOnce', undefined, 'Once only') }),
     ]),
     // ─── 状態行 ─────
     el('div', { className: 'sc-status-row' }, [
@@ -514,7 +545,7 @@ function buildPanel() {
         el('span', { className: 'sc-issue-no', id: 'sc-issue-no', text: '—' }),
       ]),
       buildDot(),
-      el('span', { className: 'sc-status', id: 'sc-status', text: '期間指定なし' }),
+      el('span', { className: 'sc-status', id: 'sc-status', text: Localizer.t('statusNone', undefined, 'No period set') }),
       // tbs ラベル（右寄せ）
       el('span', { className: 'sc-tbs-wrap' }, [
         el('span', { className: 'sc-tbs-label', text: 'tbs=' }),
@@ -526,9 +557,9 @@ function buildPanel() {
     // ─── フッター：「期間を維持」switch + 日本語ラベル ─────
     el('div', { className: 'sc-footer' }, [
       el('label', { className: 'sc-keep', id: 'sc-keep' }, [
-        el('span', { className: 'sc-keep-label', text: '期間を維持' }),
+        el('span', { className: 'sc-keep-label', text: Localizer.t('keepLabel', undefined, 'Keep period') }),
         el('span', { className: 'sc-keep-switch' }, [
-          el('input', { type: 'checkbox', id: 'sc-keep-input', attrs: { 'aria-label': '期間を維持' } }),
+          el('input', { type: 'checkbox', id: 'sc-keep-input', attrs: { 'aria-label': Localizer.t('keepLabel', undefined, 'Keep period') } }),
           el('span', { className: 'sc-keep-track', attrs: { 'aria-hidden': 'true' } }),
         ]),
       ]),
@@ -605,7 +636,7 @@ const STYLES_COMMON = `
       display: block;
       width: ${PANEL_WIDTH}px;
       margin: 0;
-      font-family: "Hiragino Sans", "Noto Sans JP", "Segoe UI", system-ui, sans-serif;
+      font-family: var(--sc-sans, "Hiragino Sans", "Noto Sans JP", "Segoe UI", system-ui, sans-serif);
       font-size: 12px;
       line-height: 1.4;
       color: var(--ink);
@@ -671,7 +702,7 @@ const STYLES_COMMON = `
     .sc-logo { display: block; }
 
     .sc-title {
-      font-family: "Hiragino Mincho ProN", "Hiragino Mincho Pro", "Noto Serif JP", Georgia, serif;
+      font-family: var(--sc-serif, "Hiragino Mincho ProN", "Hiragino Mincho Pro", "Noto Serif JP", Georgia, serif);
       font-size: 12px;
       font-weight: 600;
       letter-spacing: 0.04em;
@@ -696,7 +727,7 @@ const STYLES_COMMON = `
     }
     .sc-issue-en {
       font-style: italic;
-      font-family: "Hiragino Mincho ProN", "Hiragino Mincho Pro", "Noto Serif JP", Georgia, serif;
+      font-family: var(--sc-serif, "Hiragino Mincho ProN", "Hiragino Mincho Pro", "Noto Serif JP", Georgia, serif);
     }
     .sc-issue-no {
       font-variant-numeric: tabular-nums;
@@ -706,7 +737,7 @@ const STYLES_COMMON = `
     }
 
     .sc-status {
-      font-family: "Hiragino Mincho ProN", "Hiragino Mincho Pro", "Noto Serif JP", Georgia, serif;
+      font-family: var(--sc-serif, "Hiragino Mincho ProN", "Hiragino Mincho Pro", "Noto Serif JP", Georgia, serif);
       font-size: 11.5px;
       font-weight: 600;
       letter-spacing: 0.03em;
@@ -737,7 +768,7 @@ const STYLES_COMMON = `
       align-items: center;
       padding: 2px 7px;
       border-radius: 99px;
-      font-family: "Hiragino Sans", "Noto Sans JP", "Segoe UI", sans-serif;
+      font-family: var(--sc-sans, "Hiragino Sans", "Noto Sans JP", "Segoe UI", sans-serif);
       font-size: 9.5px;
       letter-spacing: 0.06em;
       font-weight: 600;
@@ -783,7 +814,7 @@ const STYLES_COMMON = `
       border-color: var(--accent);
     }
     .sc-keep-label {
-      font-family: "Hiragino Sans", "Noto Sans JP", "Segoe UI", sans-serif;
+      font-family: var(--sc-sans, "Hiragino Sans", "Noto Sans JP", "Segoe UI", sans-serif);
       font-size: 11.5px;
       letter-spacing: 0.04em;
       color: var(--ink-soft);
@@ -937,6 +968,9 @@ function getStyles(dark) {
 // 全 const/function 宣言の初期化後に注入を起動（const は巻き上げされず TDZ になるため、
 // 冒頭で initSearchClock を呼ぶと STYLES_DARK/LIGHT 参照が ReferenceError になる）。
 // DOM上の既存要素で多重注入を防止（content scriptのletフラグはナビゲーションでリセットされるため不可）
-if (!document.getElementById('searchclock-root')) {
-  initSearchClock();
-}
+// 保存済みの言語を読み込んでから注入する（読み込み前に作ると標準言語で一瞬出るため）。
+Localizer.ready.then(() => {
+  if (!document.getElementById('searchclock-root')) {
+    initSearchClock();
+  }
+});

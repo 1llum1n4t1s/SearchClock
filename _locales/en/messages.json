@@ -1,0 +1,131 @@
+{
+  "appName": {
+    "message": "SearchClock"
+  },
+  "appDescription": {
+    "message": "Lock Google's search time filter. Results stay limited to your chosen period, every search."
+  },
+  "presetOffLabel": {
+    "message": "Off"
+  },
+  "presetOffShort": {
+    "message": "Off"
+  },
+  "presetH1Label": {
+    "message": "Within 1 hour"
+  },
+  "presetH3Label": {
+    "message": "Within 3 hours"
+  },
+  "presetH3Short": {
+    "message": "3 hr"
+  },
+  "presetH12Label": {
+    "message": "Within 12 hours"
+  },
+  "presetH12Short": {
+    "message": "12 hr"
+  },
+  "presetD1Label": {
+    "message": "Within 1 day"
+  },
+  "presetD1Short": {
+    "message": "1 day"
+  },
+  "presetD3Label": {
+    "message": "Within 3 days"
+  },
+  "presetD3Short": {
+    "message": "3 days"
+  },
+  "presetW1Label": {
+    "message": "Within 1 week"
+  },
+  "presetW1Short": {
+    "message": "1 wk"
+  },
+  "presetM1Label": {
+    "message": "Within 1 month"
+  },
+  "presetM1Short": {
+    "message": "1 mo"
+  },
+  "presetM3Label": {
+    "message": "Within 3 months"
+  },
+  "presetM3Short": {
+    "message": "3 mo"
+  },
+  "presetM6Label": {
+    "message": "Within 6 months"
+  },
+  "presetM6Short": {
+    "message": "6 mo"
+  },
+  "presetY1Label": {
+    "message": "Within 1 year"
+  },
+  "presetY1Short": {
+    "message": "1 yr"
+  },
+  "presetY3Label": {
+    "message": "Within 3 years"
+  },
+  "presetY3Short": {
+    "message": "3 yr"
+  },
+  "statusNone": {
+    "message": "No period set"
+  },
+  "statusGoogleSpecified": {
+    "message": "Set by Google ($QDR$)",
+    "placeholders": {
+      "QDR": {
+        "content": "$1",
+        "example": "qdr:h2"
+      }
+    }
+  },
+  "modeChipKeep": {
+    "message": "Kept"
+  },
+  "modeChipOnce": {
+    "message": "Once only"
+  },
+  "keepLabel": {
+    "message": "Keep period"
+  },
+  "keepTitleGoogleSet": {
+    "message": "Showing a period set by Google. Choose a preset to keep it."
+  },
+  "keepTitleNeedPeriod": {
+    "message": "Choose a period first. It can't be kept while unset."
+  },
+  "keepTitleKeeping": {
+    "message": "Keeping the period: it also applies to your next search."
+  },
+  "keepTitleOnce": {
+    "message": "Once only: turns off automatically on your next search."
+  },
+  "badgeTitleKeeping": {
+    "message": "SearchClock — Current: $PERIOD$ (kept)",
+    "placeholders": {
+      "PERIOD": {
+        "content": "$1",
+        "example": "Within 1 year"
+      }
+    }
+  },
+  "badgeTitleKeepNoPeriod": {
+    "message": "SearchClock — Keep mode (no period set)"
+  },
+  "badgeTitleOnce": {
+    "message": "SearchClock — Once-only mode (turns off after each search)"
+  },
+  "kagayoiSupportContact": {
+    "message": "Contact support"
+  },
+  "kagayoiSupportRate": {
+    "message": "Please rate us!"
+  }
+}

@@ -1,0 +1,131 @@
+{
+  "appName": {
+    "message": "SearchClock"
+  },
+  "appDescription": {
+    "message": "Fixiert den Zeitraumfilter der Google-Suche und beschränkt die Ergebnisse immer auf den von Ihnen gewählten Zeitraum."
+  },
+  "presetOffLabel": {
+    "message": "Aus"
+  },
+  "presetOffShort": {
+    "message": "Aus"
+  },
+  "presetH1Label": {
+    "message": "Letzte Stunde"
+  },
+  "presetH3Label": {
+    "message": "Letzte 3 Stunden"
+  },
+  "presetH3Short": {
+    "message": "3 Std."
+  },
+  "presetH12Label": {
+    "message": "Letzte 12 Stunden"
+  },
+  "presetH12Short": {
+    "message": "12 Std."
+  },
+  "presetD1Label": {
+    "message": "Letzter Tag"
+  },
+  "presetD1Short": {
+    "message": "1 Tag"
+  },
+  "presetD3Label": {
+    "message": "Letzte 3 Tage"
+  },
+  "presetD3Short": {
+    "message": "3 Tage"
+  },
+  "presetW1Label": {
+    "message": "Letzte Woche"
+  },
+  "presetW1Short": {
+    "message": "1 Wo."
+  },
+  "presetM1Label": {
+    "message": "Letzter Monat"
+  },
+  "presetM1Short": {
+    "message": "1 Mon."
+  },
+  "presetM3Label": {
+    "message": "Letzte 3 Monate"
+  },
+  "presetM3Short": {
+    "message": "3 Mon."
+  },
+  "presetM6Label": {
+    "message": "Letzte 6 Monate"
+  },
+  "presetM6Short": {
+    "message": "6 Mon."
+  },
+  "presetY1Label": {
+    "message": "Letztes Jahr"
+  },
+  "presetY1Short": {
+    "message": "1 Jahr"
+  },
+  "presetY3Label": {
+    "message": "Letzte 3 Jahre"
+  },
+  "presetY3Short": {
+    "message": "3 Jahre"
+  },
+  "statusNone": {
+    "message": "Kein Zeitraum festgelegt"
+  },
+  "statusGoogleSpecified": {
+    "message": "Von Google festgelegt ($QDR$)",
+    "placeholders": {
+      "QDR": {
+        "content": "$1",
+        "example": "qdr:h2"
+      }
+    }
+  },
+  "modeChipKeep": {
+    "message": "Beibehalten"
+  },
+  "modeChipOnce": {
+    "message": "Einmalig"
+  },
+  "keepLabel": {
+    "message": "Zeitraum beibehalten"
+  },
+  "keepTitleGoogleSet": {
+    "message": "Angezeigt wird ein von Google festgelegter Zeitraum (wählen Sie eine Voreinstellung, um ihn beizubehalten)"
+  },
+  "keepTitleNeedPeriod": {
+    "message": "Wählen Sie zuerst einen Zeitraum (ohne Auswahl kann er nicht beibehalten werden)"
+  },
+  "keepTitleKeeping": {
+    "message": "Zeitraum wird beibehalten: Er gilt auch für die nächste Suche"
+  },
+  "keepTitleOnce": {
+    "message": "Einmalig: Wird bei der nächsten Suche automatisch deaktiviert"
+  },
+  "badgeTitleKeeping": {
+    "message": "SearchClock — Aktuell: $PERIOD$ (beibehalten)",
+    "placeholders": {
+      "PERIOD": {
+        "content": "$1",
+        "example": "Within 1 year"
+      }
+    }
+  },
+  "badgeTitleKeepNoPeriod": {
+    "message": "SearchClock — Beibehalten-Modus (kein Zeitraum festgelegt)"
+  },
+  "badgeTitleOnce": {
+    "message": "SearchClock — Einmal-Modus (nach jeder Suche automatisch aus)"
+  },
+  "kagayoiSupportContact": {
+    "message": "Support kontaktieren"
+  },
+  "kagayoiSupportRate": {
+    "message": "Bitte bewerten Sie uns!"
+  }
+}

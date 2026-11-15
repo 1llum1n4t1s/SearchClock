@@ -1,0 +1,131 @@
+{
+  "appName": {
+    "message": "SearchClock"
+  },
+  "appDescription": {
+    "message": "Verrouille le filtre de période de la recherche Google et limite toujours les résultats à la période que vous choisissez."
+  },
+  "presetOffLabel": {
+    "message": "Désactivé"
+  },
+  "presetOffShort": {
+    "message": "Désact."
+  },
+  "presetH1Label": {
+    "message": "Moins de 1 heure"
+  },
+  "presetH3Label": {
+    "message": "Moins de 3 heures"
+  },
+  "presetH3Short": {
+    "message": "3 h"
+  },
+  "presetH12Label": {
+    "message": "Moins de 12 heures"
+  },
+  "presetH12Short": {
+    "message": "12 h"
+  },
+  "presetD1Label": {
+    "message": "Moins de 1 jour"
+  },
+  "presetD1Short": {
+    "message": "1 jour"
+  },
+  "presetD3Label": {
+    "message": "Moins de 3 jours"
+  },
+  "presetD3Short": {
+    "message": "3 jours"
+  },
+  "presetW1Label": {
+    "message": "Moins de 1 semaine"
+  },
+  "presetW1Short": {
+    "message": "1 sem."
+  },
+  "presetM1Label": {
+    "message": "Moins de 1 mois"
+  },
+  "presetM1Short": {
+    "message": "1 mois"
+  },
+  "presetM3Label": {
+    "message": "Moins de 3 mois"
+  },
+  "presetM3Short": {
+    "message": "3 mois"
+  },
+  "presetM6Label": {
+    "message": "Moins de 6 mois"
+  },
+  "presetM6Short": {
+    "message": "6 mois"
+  },
+  "presetY1Label": {
+    "message": "Moins de 1 an"
+  },
+  "presetY1Short": {
+    "message": "1 an"
+  },
+  "presetY3Label": {
+    "message": "Moins de 3 ans"
+  },
+  "presetY3Short": {
+    "message": "3 ans"
+  },
+  "statusNone": {
+    "message": "Aucune période définie"
+  },
+  "statusGoogleSpecified": {
+    "message": "Défini par Google ($QDR$)",
+    "placeholders": {
+      "QDR": {
+        "content": "$1",
+        "example": "qdr:h2"
+      }
+    }
+  },
+  "modeChipKeep": {
+    "message": "Maintenu"
+  },
+  "modeChipOnce": {
+    "message": "Une fois"
+  },
+  "keepLabel": {
+    "message": "Conserver la période"
+  },
+  "keepTitleGoogleSet": {
+    "message": "La période affichée est définie par Google (choisissez un préréglage pour la conserver)"
+  },
+  "keepTitleNeedPeriod": {
+    "message": "Choisissez d'abord une période (impossible de la conserver tant qu'elle n'est pas définie)"
+  },
+  "keepTitleKeeping": {
+    "message": "Période conservée : elle s’applique aussi à la prochaine recherche"
+  },
+  "keepTitleOnce": {
+    "message": "Une seule fois : se désactive automatiquement à la prochaine recherche"
+  },
+  "badgeTitleKeeping": {
+    "message": "SearchClock — Actuel : $PERIOD$ (conservé)",
+    "placeholders": {
+      "PERIOD": {
+        "content": "$1",
+        "example": "Within 1 year"
+      }
+    }
+  },
+  "badgeTitleKeepNoPeriod": {
+    "message": "SearchClock — Mode conservation (aucune période définie)"
+  },
+  "badgeTitleOnce": {
+    "message": "SearchClock — Mode une seule fois (se désactive après chaque recherche)"
+  },
+  "kagayoiSupportContact": {
+    "message": "Contacter le support"
+  },
+  "kagayoiSupportRate": {
+    "message": "Évaluez-nous !"
+  }
+}
