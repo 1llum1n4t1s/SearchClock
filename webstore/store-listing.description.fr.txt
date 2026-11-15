@@ -1,0 +1,58 @@
+SearchClock est une extension Chrome qui limite les résultats de la recherche Google à la période que vous choisissez.
+Depuis le panneau affiché sur la page de résultats, vous changez de période d’un seul clic, sur place.
+Si vous activez « Conserver la période », la même période s’applique automatiquement à vos recherches suivantes.
+
+■ Fonctionnalités principales
+
+・Panneau à côté des résultats de recherche
+  Le panneau de sélection de la période s’affiche à droite de la page de résultats Google (en bas à droite de l’écran lorsque la fenêtre est étroite).
+  Même s’il s’affiche avec un léger retard, les résultats ne bougent pas, ce qui évite les clics par erreur.
+  Lorsque vous choisissez une période, la page bascule aussitôt vers les résultats limités à cette période.
+
+・De nombreux préréglages
+  Vous pouvez choisir parmi 3 h / 12 h / 1 jour / 3 jours / 1 sem. / 1 mois / 3 mois / 6 mois / 1 an / 3 ans.
+  Si vous choisissez « Désactivé », la période de la page affichée est supprimée.
+
+・Deux modes de fonctionnement (l’interrupteur « Conserver la période »)
+  Désactivé (une seule fois, réglage par défaut) : la période choisie ne s’applique qu’à cette recherche, et l’extension n’ajoute pas automatiquement de période à la recherche suivante.
+  Cela évite de lancer une recherche avec une période non voulue parce que vous avez oublié de rétablir le réglage.
+  Activé (conservation) : la période en vigueur au moment où vous activez l’interrupteur est enregistrée et s’applique automatiquement à vos recherches suivantes.
+  L’interrupteur se trouve en bas du panneau. Il ne peut pas être activé tant qu’aucune période n’est choisie, ni lorsque Google affiche une période qui ne fait pas partie des préréglages.
+
+・Période ajoutée à l’URL avant la recherche
+  Tant qu’une période est conservée, l’extension utilise declarativeNetRequest de Chrome pour ajouter la période à l’URL dès l’étape de la requête de recherche.
+  Les résultats ne sont pas chargés d’abord pour être rechargés ensuite.
+
+・Compatibilité avec les outils de recherche Google (la dernière action prime)
+  Si vous modifiez la période dans les outils de recherche Google, « Conserver la période » est désactivé automatiquement.
+  Si vous choisissez une période dans le panneau, la page bascule vers cette période. Les autres critères, comme la taille des images ou l’ordre de tri, sont conservés.
+  C’est toujours « la dernière action effectuée » qui prime.
+
+・Icône de l’extension
+  Un clic sur l’icône ouvre Google dans un nouvel onglet.
+  Tant qu’une période est conservée, le badge affiche son abréviation (1y / 1mo, etc.) ; en mode une seule fois, il affiche « · ».
+
+・Compatible avec les thèmes clair et sombre
+  Les couleurs du panneau suivent le thème clair ou sombre de Google.
+
+・Légère et respectueuse de la vie privée
+  Les seules autorisations utilisées sont declarativeNetRequest, storage et l’accès aux domaines de recherche Google pris en charge.
+  Vos réglages de période sont enregistrés dans Chrome et, si la synchronisation de Chrome est activée, ils sont synchronisés.
+  Aucune donnée n’est envoyée à un serveur externe qui nous appartienne, et aucune police externe n’est chargée.
+
+・Recherche Google prise en charge
+  Les pages de résultats de 11 domaines Google, dont google.com et google.co.jp, sont prises en charge.
+
+・Recommandée pour
+  - Ceux qui cherchent les informations les plus récentes : trouver du nouveau sans être noyé sous d’anciens articles
+  - Techniciens et développeurs : les informations de programmation vieillissent vite, il faut donc toujours chercher les articles les plus récents
+  - Actualités et tendances : ceux qui veulent limiter les résultats à ce dont on parle en ce moment
+
+■ Mode d’emploi
+
+1. Installez l’extension depuis le Chrome Web Store
+2. Lorsque vous lancez une recherche Google, le panneau SearchClock s’affiche à droite des résultats
+3. Choisissez la période souhaitée (par exemple : 1 an) et les résultats sont limités à cette période
+4. Pour utiliser la même période lors de la recherche suivante, activez l’interrupteur « Conserver la période »
+   (s’il reste désactivé, la période choisie ne s’applique qu’à cette recherche)
+5. Si vous modifiez la période dans les outils de recherche Google, « Conserver la période » est désactivé automatiquement

@@ -1,0 +1,58 @@
+SearchClock is a Chrome extension that narrows Google search results to the period you choose.
+A panel on the search results page lets you switch the period with one click, right there.
+Turn on "Keep period" and the same period is applied automatically to your next searches too.
+
+■ Features
+
+・Panel next to the search results
+  The period panel appears on the right side of the Google results page (at the bottom right of the screen on narrow windows).
+  The results do not shift even if the panel appears late, which helps prevent mis-clicks.
+  When you choose a period, the page switches right away to results limited to that period.
+
+・Plenty of presets
+  3 hr / 12 hr / 1 day / 3 days / 1 wk / 1 mo / 3 mo / 6 mo / 1 yr / 3 yr
+  are available. Choose "Off" to clear the period on the page you are viewing.
+
+・Two modes (the "Keep period" switch)
+  OFF (once only, default): the chosen period applies to that search only, and the extension does not add a period to your next search automatically.
+  This prevents searching with an unintended period because you forgot to reset the setting.
+  ON (keep): the period selected when you turn the switch on is saved and applied automatically to your next searches too.
+  The switch is at the bottom of the panel. It cannot be turned on while no period is chosen, or while Google is showing a period that is not one of the presets.
+
+・Period added to the URL before the search
+  While a period is kept, the extension uses Chrome's declarativeNetRequest to add the period to the URL at the search request stage.
+  The results are never loaded first and then reloaded.
+
+・Works with Google's search tools (last action wins)
+  If you change the period in Google's search tools, "Keep period" is turned off automatically.
+  If you choose a period in the panel, the page switches to that period. Other conditions, such as image size and sort order, are preserved.
+  The most recent action always takes priority.
+
+・Extension icon
+  Click the icon to open Google in a new tab.
+  While a period is kept, the badge shows its short form (1y / 1mo, etc.); in once-only mode it shows "·".
+
+・Light/dark theme support
+  The panel colors follow Google's light and dark themes.
+
+・Lightweight and privacy-minded
+  The only permissions used are declarativeNetRequest, storage, and access to the supported Google search domains.
+  Your period settings are stored in Chrome and, if Chrome sync is enabled, are included in sync.
+  No data is sent to any server of our own, and no external fonts are loaded.
+
+・Supported Google search
+  Works on the search results pages of 11 Google domains, including google.com and google.co.jp.
+
+・Recommended for
+  - People who want the latest information: find new information without being buried under old articles
+  - Engineers and developers: programming information goes stale fast, so always search the newest articles
+  - News and trends: people who want to narrow results to what is being talked about now
+
+■ How to use
+
+1. Install from the Chrome Web Store
+2. Search on Google, and the SearchClock panel appears to the right of the results
+3. Choose the period you want (for example: 1 yr) and the results are narrowed to that period
+4. To use the same period for your next searches, turn on the "Keep period" switch
+   (if it stays OFF, the chosen period applies to that search only)
+5. If you change the period in Google's search tools, "Keep period" is turned off automatically

@@ -1,0 +1,58 @@
+O SearchClock é uma extensão do Chrome que limita os resultados da pesquisa do Google ao período que você escolher.
+No painel exibido na página de resultados, você troca o período com um clique, ali mesmo.
+Se você ativar "Manter período", o mesmo período é aplicado automaticamente também às próximas pesquisas.
+
+■ Principais recursos
+
+・Painel ao lado dos resultados da pesquisa
+  O painel de seleção de período aparece no lado direito da página de resultados do Google (no canto inferior direito da tela quando a janela é estreita).
+  Mesmo que o painel apareça com atraso, os resultados não se deslocam, o que evita cliques por engano.
+  Ao escolher um período, a página muda imediatamente para os resultados limitados a esse período.
+
+・Várias predefinições
+  Você pode escolher entre 3 h / 12 h / 1 dia / 3 dias / 1 sem. / 1 mês / 3 meses / 6 meses / 1 ano / 3 anos.
+  Se você escolher "Desativado", o período da página que está sendo exibida é removido.
+
+・Dois modos de funcionamento (a chave "Manter período")
+  Desativado (apenas uma vez, configuração padrão): o período escolhido vale somente para aquela pesquisa, e a extensão não adiciona um período à próxima pesquisa automaticamente.
+  Isso evita pesquisar com um período indesejado por ter esquecido de restaurar a configuração.
+  Ativado (manter): o período vigente no momento em que você ativa a chave é salvo e aplicado automaticamente também às próximas pesquisas.
+  A chave fica na parte inferior do painel. Ela não pode ser ativada quando nenhum período foi escolhido ou quando o Google exibe um período que não está entre as predefinições.
+
+・Período adicionado à URL antes da pesquisa
+  Enquanto o período é mantido, a extensão usa o declarativeNetRequest do Chrome para adicionar o período à URL na etapa da solicitação de pesquisa.
+  Os resultados não são carregados primeiro para depois serem recarregados.
+
+・Integração com as ferramentas de pesquisa do Google (vale a última ação)
+  Se você alterar o período nas ferramentas de pesquisa do Google, "Manter período" é desativado automaticamente.
+  Se você escolher um período no painel, a página muda para esse período. As demais condições, como tamanho da imagem e ordem de classificação, são mantidas.
+  Sempre vale "a última ação realizada".
+
+・Ícone da extensão
+  Ao clicar no ícone, o Google é aberto em uma nova aba.
+  Enquanto o período é mantido, o selo exibe a abreviação do período salvo (1y / 1mo etc.); no modo de uma vez, exibe "·".
+
+・Compatível com tema claro e escuro
+  As cores do painel mudam conforme o tema claro ou escuro do Google.
+
+・Leve e voltada à privacidade
+  As únicas permissões usadas são declarativeNetRequest, storage e o acesso aos domínios de pesquisa do Google compatíveis.
+  As configurações de período ficam salvas no Chrome e, se a sincronização do Chrome estiver ativada, entram na sincronização.
+  Nenhum dado é enviado a servidores externos próprios, e nenhuma fonte externa é carregada.
+
+・Pesquisa do Google compatível
+  Compatível com as páginas de resultados de 11 domínios do Google, como google.com e google.co.jp.
+
+・Recomendada para
+  - Quem quer pesquisar as informações mais recentes: encontrar informações novas sem se perder entre artigos antigos
+  - Técnicos e desenvolvedores: informações de programação perdem a validade rápido, então convém pesquisar sempre os artigos mais recentes
+  - Notícias e tendências: quem quer limitar os resultados ao que está em destaque agora
+
+■ Como usar
+
+1. Instale pela Chrome Web Store
+2. Ao pesquisar no Google, o painel do SearchClock aparece à direita dos resultados
+3. Escolha o período desejado (por exemplo: 1 ano) e os resultados são limitados a esse período
+4. Para usar o mesmo período na próxima pesquisa, ative a chave "Manter período"
+   (se ela ficar desativada, o período escolhido vale somente para aquela pesquisa)
+5. Se você alterar o período nas ferramentas de pesquisa do Google, "Manter período" é desativado automaticamente

@@ -1,0 +1,58 @@
+SearchClock ist eine Chrome-Erweiterung, die die Ergebnisse der Google-Suche auf den von Ihnen gewählten Zeitraum beschränkt.
+Über das Panel auf der Suchergebnisseite können Sie den Zeitraum direkt vor Ort mit einem Klick wechseln.
+Wenn Sie „Zeitraum beibehalten“ einschalten, wird derselbe Zeitraum automatisch auch bei Ihren nächsten Suchen angewendet.
+
+■ Hauptfunktionen
+
+・Panel neben den Suchergebnissen
+  Das Panel zur Zeitraumauswahl erscheint rechts auf der Google-Ergebnisseite (bei schmalen Fenstern unten rechts auf dem Bildschirm).
+  Auch wenn das Panel verzögert erscheint, verschieben sich die Suchergebnisse nicht, sodass Fehlklicks vermieden werden.
+  Sobald Sie einen Zeitraum wählen, wechselt die Seite sofort zu den auf diesen Zeitraum beschränkten Suchergebnissen.
+
+・Viele Voreinstellungen
+  Zur Auswahl stehen 3 Std. / 12 Std. / 1 Tag / 3 Tage / 1 Wo. / 1 Mon. / 3 Mon. / 6 Mon. / 1 Jahr / 3 Jahre.
+  Wenn Sie „Aus“ wählen, wird die Zeitraumangabe der angezeigten Seite aufgehoben.
+
+・Zwei Betriebsmodi (der Schalter „Zeitraum beibehalten“)
+  AUS (einmalig, Standardeinstellung): Der gewählte Zeitraum gilt nur für diese Suche, und die Erweiterung fügt bei der nächsten Suche nicht automatisch einen Zeitraum hinzu.
+  So vermeiden Sie, dass Sie versehentlich mit einem unbeabsichtigten Zeitraum suchen, weil Sie vergessen haben, die Einstellung zurückzusetzen.
+  EIN (beibehalten): Der beim Einschalten des Schalters gewählte Zeitraum wird gespeichert und auch bei den nächsten Suchen automatisch angewendet.
+  Der Schalter befindet sich unten im Panel. Er lässt sich nicht einschalten, solange kein Zeitraum gewählt ist oder Google einen Zeitraum anzeigt, der nicht zu den Voreinstellungen gehört.
+
+・Zeitraum vor der Suche an die URL anhängen
+  Solange ein Zeitraum beibehalten wird, hängt die Erweiterung ihn mit declarativeNetRequest von Chrome schon bei der Suchanfrage an die URL an.
+  Die Ergebnisse werden nicht erst geladen und dann neu geladen.
+
+・Zusammenspiel mit den Suchtools von Google (die letzte Aktion gilt)
+  Wenn Sie den Zeitraum in den Suchtools von Google ändern, wird „Zeitraum beibehalten“ automatisch ausgeschaltet.
+  Wenn Sie im Panel einen Zeitraum wählen, wird zu diesem Zeitraum gewechselt. Andere Bedingungen wie Bildgröße oder Sortierung bleiben erhalten.
+  Immer gilt „die zuletzt ausgeführte Aktion“.
+
+・Erweiterungssymbol
+  Ein Klick auf das Symbol öffnet Google in einem neuen Tab.
+  Solange ein Zeitraum beibehalten wird, zeigt das Badge dessen Kurzform (1y / 1mo usw.); im Einmal-Modus erscheint „·“.
+
+・Unterstützung für helles und dunkles Design
+  Die Farben des Panels passen sich dem hellen bzw. dunklen Design von Google an.
+
+・Leichtgewichtig und datenschutzorientiert
+  Verwendet werden nur die Berechtigungen declarativeNetRequest und storage sowie der Zugriff auf die unterstützten Google-Suchdomains.
+  Ihre Zeitraumeinstellungen werden in Chrome gespeichert und, wenn die Chrome-Synchronisierung aktiviert ist, mitsynchronisiert.
+  Es werden keine Daten an eigene externe Server gesendet und keine externen Schriftarten geladen.
+
+・Unterstützte Google-Suche
+  Unterstützt werden die Suchergebnisseiten von 11 Google-Domains, darunter google.com und google.co.jp.
+
+・Empfohlen für
+  - Alle, die nach den neuesten Informationen suchen: neue Informationen finden, ohne von alten Artikeln verdrängt zu werden
+  - Techniker und Entwickler: Programmierwissen veraltet schnell, daher immer die neuesten Artikel suchen
+  - Nachrichten und Trends: alle, die die Ergebnisse auf aktuell Besprochenes eingrenzen möchten
+
+■ Verwendung
+
+1. Im Chrome Web Store installieren
+2. Wenn Sie bei Google suchen, erscheint rechts neben den Ergebnissen das SearchClock-Panel
+3. Wählen Sie den gewünschten Zeitraum (z. B. 1 Jahr), und die Ergebnisse werden auf diesen Zeitraum eingegrenzt
+4. Wenn Sie denselben Zeitraum auch bei der nächsten Suche verwenden möchten, schalten Sie den Schalter „Zeitraum beibehalten“ ein
+   (Bleibt er AUS, gilt der gewählte Zeitraum nur für diese Suche)
+5. Wenn Sie den Zeitraum in den Suchtools von Google ändern, wird „Zeitraum beibehalten“ automatisch ausgeschaltet
