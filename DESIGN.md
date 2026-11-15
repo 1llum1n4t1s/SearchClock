@@ -4,23 +4,26 @@
 
 SearchClock は、Google Web 検索の `tbs` クエリパラメータへ期間条件 `qdr:VALUE` を設定する Manifest V3 Chrome 拡張機能である。検索結果ページ上の設定パネルから一回限りの絞り込み、または後続検索にも適用する維持モードを選べる。
 
-検索への介入は対応する Google ドメインの `/search` に限定する。設定は `chrome.storage.sync` に保存し、Chrome の設定同期の対象になる。独自の外部送信処理・バックエンド・ポップアップは持たず、拡張機能アイコンのクリックでは Google トップページを新しいタブで開く。
+検索への介入は対応する Google ドメインの `/search` に限定する。設定は `chrome.storage.sync` に保存し、Chrome の設定同期の対象になる。表示言語は Chrome の UI 言語に従う9言語（英語を既定とし、日本語・簡体字中国語・繁体字中国語・韓国語・スペイン語・フランス語・ドイツ語・ブラジルポルトガル語）で、言語の切替 UI は持たない。独自の外部送信処理・バックエンド・ポップアップは持たず、拡張機能アイコンのクリックでは Google トップページを新しいタブで開く。
 
 ## 主要コンポーネント
 
 | コンポーネント | 責務と境界 |
 | --- | --- |
-| `manifest.json` | サービスワーカーとコンテンツスクリプトの登録、対応 Google ドメイン、`declarativeNetRequest`・`storage` 権限を定義する。共有プリセットをコンテンツ本体より先に読み込む。 |
-| `src/shared/presets.js` | プリセット、既定設定、有効な qdr 値、表示ラベル、`tbs` 解析を一元管理する。ブラウザでは共有グローバル、Bun テストでは条件付き `module.exports` として使う。 |
-| `src/background/background.js` | `chrome.storage.sync` を正規化して読み、維持モード用 DNR 動的ルール、アイコンのバッジ・タイトルとクリック動作、コンテンツスクリプトからの更新メッセージを管理する。 |
+| `manifest.json` | サービスワーカーとコンテンツスクリプトの登録、対応 Google ドメイン、`declarativeNetRequest`・`storage` 権限を定義する。名前・説明は `__MSG_*__` で `_locales` を参照し、`default_locale` は `en`。ローカライザと共有プリセットをコンテンツ本体より先に読み込む。 |
+| `_locales/<locale>/messages.json` | 9言語の UI 文言（パネル、バッジのツールチップ、プリセット名、拡張の名前と説明）。全言語で同じキーを持つ。 |
+| `src/shared/ui-localizer.js` | 表示言語を解決する `Localizer`（`t` / `ready` / `onChange` / `ensureFresh`）。Kagayoi.Support が正本で、全拡張へ同一バイトで逐語コピーする。`l10n.config.json` が配置先・対象 manifest・言語切替 UI なし（`languageSwitcher: false`）を宣言する。 |
+| `src/shared/presets.js` | プリセット、既定設定、有効な qdr 値、表示ラベルの `_locales` キー（`labelKey` / `shortKey`）、`tbs` 解析を一元管理する。ブラウザでは共有グローバル、Bun テストでは条件付き `module.exports` として使う。 |
+| `src/background/background.js` | `chrome.storage.sync` を正規化して読み、維持モード用 DNR 動的ルール、アイコンのバッジ・ツールチップ（多言語）とクリック動作、コンテンツスクリプトからの更新メッセージを管理する。 |
 | `src/content/content.js` | Google 検索結果へ closed Shadow DOM の設定パネルを注入する。URLから表示状態を導出し、プリセット選択、維持モード切替、Google検索ツールとの後勝ち連携を処理する。 |
 | `src/**/*.test.*` | 共有プリセットと `tbs` 解析、サービスワーカーの状態競合、コンテンツUIの再注入を回帰テストで検証する。 |
-| `scripts/` | Google ドメイン定義の同期検査と、SVGから配布用アイコンを生成する。 |
+| `scripts/` | Google ドメイン定義の同期検査、SVGからの配布用アイコン生成、Chrome 起動用プロファイルのシード（`chrome-profile-seed.mjs`）、CWS 公開（`Publish-Cws.ps1` / `CwsPublisher.cs`）とその HTTP fixture テスト（`Test-PublishCws.ps1`）を持つ。 |
 | `webstore/` | Chrome Web Store 掲載文と掲載画像の設定（`store-assets.json`・固定ページ `fixtures/`）、画像生成キット（`vitrina/`、正本は Kagayoi.Support の逐語コピー）を保持し、実拡張を撮影して9言語の掲載画像を生成する。製品ランタイムには含めない。 |
 | `zip.ps1` / `zip.sh` | `manifest.json`、`_locales/`、ランタイム用の `src/`、`icons/` だけを配布ZIPへ格納し、テストは除外する。 |
-| `.github/workflows/publish.yml` | `release/**` の push を契機に検証・パッケージングし、Chrome Web Storeへ公開する。Actionsはcommit SHAで固定する。 |
+| `.github/workflows/publish.yml` | `release/**` の push を契機に検証・パッケージングし、Chrome Web Storeへ下書きとしてアップロードする（審査へは申請しない）。Actionsはcommit SHAで固定する。 |
+| `.github/workflows/cws-submit.yml` | 手動実行。Dashboardで掲載画像を整えた後、同じcommitのアップロード成功を確認して審査へ申請する。 |
 
-作業コマンド、パッケージングと検証手順は [AGENTS.md](AGENTS.md) を正本とする。公開ワークフローではテスト・ドメイン同期検査・アイコン生成を通してからZIPを作り、ストア画像は生成しない。`release/<manifest.json の version>` とブランチ名が一致しない場合は公開を停止する。
+作業コマンド、パッケージングと検証手順は [AGENTS.md](AGENTS.md) を正本とする。アップロードworkflowではテスト・ドメイン同期検査・アイコン生成を通してからZIPを作り、ストア画像は生成しない。`release/<manifest.json の version>` とブランチ名が一致しない場合は停止する。アップロードと申請を分ける条件は AGENTS.md の「CWS のアップロードと申請の分離」を正本とする。
 
 ## データフロー
 
@@ -38,6 +41,12 @@ SearchClock は、Google Web 検索の `tbs` クエリパラメータへ期間�
 4. 一回限りモードではDNRルールを持たず、その遷移URLだけへqdrを直接付与する。次の通常検索には自動適用しない。
 
 維持スイッチを有効にするときは、現在URLのqdrを維持値として保存する。無効にするときはqdrを送らず、保存済みの期間を保持する。スイッチの変更自体では再遷移せず、保存失敗時はチェック状態を戻す。アイコンのバッジは現在タブのURLではなく保存設定を表し、維持中の期間を短縮ラベルで表示する。一回限りモードでは灰色の `·` を表示する。
+
+### 表示言語の解決
+
+1. サービスワーカーとコンテンツスクリプトは `ui-localizer.js` を先頭で読み込み、`Localizer.ready` を待ってから文言を引く。コンテンツ UI は保存済みの言語が読み込まれる前に作らない（標準言語での一瞬の表示を避ける）。
+2. 言語は `chrome.storage.local`（`uiLanguage` / `uiMessages` / `uiMessagesVersion`、端末内のみで同期しない）の選択を優先し、未選択ならブラウザ標準の `chrome.i18n` に従う。キーが無い場合は呼び出し側が渡す英語の既定文言へ戻る。この拡張は言語選択 UI を持たないため、通常はブラウザの UI 言語で決まる。
+3. インストール・更新時に `ensureFresh()` が保存済み辞書の版を確認し、古ければ作り直す。言語が変わるとサービスワーカーはバッジのツールチップだけを引き直す。コンテンツスクリプトは storage を書き換えず読むだけにする。
 
 ### Google検索ツールとの後勝ち連携
 
@@ -61,6 +70,8 @@ SearchClock は、Google Web 検索の `tbs` クエリパラメータへ期間�
 - パネルは検索結果の列へ差し込まず、サイドに置く。差し込み先は右カラム `#rhs` の先頭 → `#center_col` の右外への絶対配置 → 画面右下への固定表示の順に選び（Sonoyo 拡張の列 `#sonoyo-col` があるときは同じ座標で重なるため、その列の先頭へ積む）、画面幅1100px未満は固定表示にする。検索結果の位置を一切動かさないことを優先する。
 - 注入先が見つからない場合は最大10秒間DOMを監視する。GoogleのDOM更新で注入先が差し替わった場合は、破棄UIのイベントリスナーと監視を解除して再注入を試みる。画面幅の変化、`#rhs` の後出し、`#sonoyo-col` の出現・消失で差し込み先の種類が変わった場合も同様に作り直す。
 - bfcacheからの復元時は `pageshow` で現在URLとqdrを再評価し、表示とリンクの期間変更判定を更新する。
+- 表示文言は `_locales` の同一キーを9言語すべてに置く。コード側の `Localizer.t` には英語の既定文言を渡し、辞書の欠落で UI が空にならないようにする。`ui-localizer.js` は拡張ごとに改変しない。
+- Chrome を起動するスクリプトとテストは、シード済みの一時プロファイルを必ず使う（理由と手順は [AGENTS.md](AGENTS.md)）。
 - 配布ZIPにテスト、開発用依存、生成スクリプト、ストア素材を含めない。Windowsでは梱包対象を直接ZIPへ書き込み、一時コピーや削除を行わない。
 
 ## 採用済み設計判断
@@ -88,6 +99,10 @@ Google側のDOM・CSSからパネルを隔離する。外部からのスタイ�
 ### パネルを検索結果の上ではなくサイドに置く
 
 コンテンツスクリプトは `document_idle` で動くため、パネルは検索結果の描画より遅れて現れる。結果の上へ差し込むと1件目が押し下げられ、クリックしようとした位置にパネルが入って誤操作を招いていた。サイド配置で縦長のコンパクト表示にして、遅れて現れても既存の結果を動かさないようにする。狭い画面の固定表示は検索結果の一部に重なり得るため、1件目に被らない画面右下に置く。
+
+### 共通ローカライザでUI言語を解決する
+
+`chrome.i18n` はブラウザ言語に固定されるが、全拡張で共通のローカライザを使えば、将来の言語選択や、コンテンツスクリプトとサービスワーカーでの同一言語表示を拡張ごとの実装なしに揃えられる。代わりに `ui-localizer.js` は正本からの逐語コピーに限り、この拡張だけの改変はできない。切替 UI は小さなパネルを増やさないため置かない。
 
 ### 生成物と製品ランタイムの分離
 

@@ -61,7 +61,13 @@ pwsh -NoProfile -File zip.ps1                      # Windows
 
 ## 共有定義の変更
 
-プリセット、qdr値、既定設定、ラベル、アクセントカラーは `src/shared/presets.js` を変更する。background と content に個別定義を増やさず、共有スクリプトを先に読み込む順序を保つ。期間変更・維持モード・後勝ち連携の不変条件は [DESIGN.md](DESIGN.md#重要な不変条件) を参照する。
+プリセット、qdr値、既定設定、アクセントカラー、ラベルの `_locales` キーは `src/shared/presets.js` を変更する。background と content に個別定義を増やさず、共有スクリプトを先に読み込む順序（`ui-localizer.js` → `presets.js` → 本体）を保つ。期間変更・維持モード・後勝ち連携の不変条件は [DESIGN.md](DESIGN.md#重要な不変条件) を参照する。
+
+## 多言語（UI文言）
+
+- 表示文言は `_locales/<locale>/messages.json` に置き、9言語（`en` `ja` `zh_CN` `zh_TW` `ko` `es` `fr` `de` `pt_BR`）すべてへ同じキーを追加する。`default_locale` は `en`。コードの `Localizer.t` には英語の既定文言を渡す。
+- `src/shared/ui-localizer.js` は Kagayoi.Support が正本の逐語コピーで、この拡張では編集しない。配置・対象は `l10n.config.json` が定める。更新が必要なら正本側で直して配り直す。
+- ストア掲載文・画像の言語は `webstore/store-assets.json` の `locales` と同じ9言語に揃える。
 
 ## 制約事項
 
