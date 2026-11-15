@@ -13,7 +13,7 @@
     "build": "bun --bun run check-domains && bun --bun run generate-icons && bun --bun run generate-screenshots"
   },
   "devDependencies": {
-    "puppeteer": "^25.16.0",
+    "puppeteer": "^25.17.0",
     "sharp": "^0.35.5"
   },
   "keywords": [
