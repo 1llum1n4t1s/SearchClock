@@ -11,7 +11,7 @@ SearchClock — Google検索の期間指定を固定化するChrome拡張機能�
 ## ビルドコマンド
 
 ```bash
-bun install                 # 依存関係インストール（sharp, puppeteer）
+bun run deps                # lock固定の依存復元（sharp, puppeteer。bun install 直接実行は使わない）
 bun --bun run test                    # 共有関数、SW競合、コンテンツ再注入の回帰テスト
 bun --bun run check-domains       # manifest.json と background.js のドメインリスト同期検証（ズレで exit 1）
 bun --bun run generate-icons      # icons/icon.svg → icons/icon-{16,48,128}.png（1つでも失敗で exit 1）
