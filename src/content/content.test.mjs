@@ -16,8 +16,10 @@ test('維持変更・未知qdr・修飾クリック・再注入の契約を保�
   });
   t.after(() => browser.close());
   const page = await browser.newPage();
+  // 右側に列を置ける幅にして、検索結果列の右外へ置くサイド配置を検証する
+  await page.setViewport({ width: 1400, height: 900 });
   await page.goto(`${pathToFileURL(TEST_FILE).href}?q=test&tbs=qdr:y`);
-  await page.setContent('<main id="center_col"></main>');
+  await page.setContent('<div id="rcnt"><main id="center_col" style="position:relative;width:650px;margin-left:180px"><div id="first-result">result</div></main></div>');
   await page.evaluate(() => {
     window.__settingsMessages = [];
     const storageListeners = new Set();
@@ -54,14 +56,35 @@ test('維持変更・未知qdr・修飾クリック・再注入の契約を保�
   await page.addScriptTag({ path: path.join(REPO_ROOT, 'src/content/content.js') });
   assert.equal(await page.evaluate(() => document.querySelectorAll('#searchclock-root').length), 1);
 
+  // パネルは検索結果の外側（右）に置かれ、1件目の位置を動かさない
+  const sideLayout = await page.evaluate(() => {
+    const root = document.getElementById('searchclock-root');
+    const center = document.getElementById('center_col');
+    const first = document.getElementById('first-result');
+    return {
+      position: getComputedStyle(root).position,
+      firstIsTop: center.firstElementChild === first,
+      firstTop: first.getBoundingClientRect().top - center.getBoundingClientRect().top,
+      rootLeftOfCenterRight: root.getBoundingClientRect().left >= center.getBoundingClientRect().right,
+    };
+  });
+  assert.deepEqual(sideLayout, {
+    position: 'absolute',
+    firstIsTop: true,
+    firstTop: 0,
+    rootLeftOfCenterRight: true,
+  });
+
   await page.evaluate(() => {
     const root = document.getElementById('searchclock-root');
     const keepInput = root.shadowRoot.getElementById('sc-keep-input');
     keepInput.checked = true;
     keepInput.dispatchEvent(new Event('change'));
-    document.getElementById('center_col').replaceWith(Object.assign(document.createElement('main'), {
-      id: 'center_col',
-    }));
+    const next = document.createElement('main');
+    next.id = 'center_col';
+    next.style.cssText = 'position:relative;width:650px;margin-left:180px';
+    next.appendChild(Object.assign(document.createElement('div'), { id: 'first-result', textContent: 'result' }));
+    document.getElementById('center_col').replaceWith(next);
   });
 
   await page.waitForFunction(() => document.querySelectorAll('#searchclock-root').length === 1
@@ -161,4 +184,52 @@ test('維持変更・未知qdr・修飾クリック・再注入の契約を保�
     { type: 'updateKeepSetting', keepSetting: true, qdr: 'y' },
     { type: 'updateQdr', qdr: 'd' },
   ]);
+
+  // Sonoyo が実ページと同じく #center_col の右外へ列を作ったら、その列の先頭へ積み、重ならない
+  await page.evaluate(() => {
+    const col = document.createElement('div');
+    col.id = 'sonoyo-col';
+    col.style.cssText = 'position:absolute;left:calc(100% + 28px);top:0;width:380px;';
+    const sonoyo = document.createElement('div');
+    sonoyo.id = 'sonoyo-root';
+    sonoyo.style.cssText = 'display:block;width:100%;height:300px;';
+    col.appendChild(sonoyo);
+    document.getElementById('center_col').appendChild(col);
+  });
+  await page.waitForFunction(() => document.querySelector('#sonoyo-col > #searchclock-root:first-child'), { polling: 50, timeout: 5000 });
+  assert.deepEqual(await page.evaluate(() => {
+    const a = document.getElementById('searchclock-root').getBoundingClientRect();
+    const b = document.getElementById('sonoyo-root').getBoundingClientRect();
+    const overlap = a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+    return { count: document.querySelectorAll('#searchclock-root').length, overlap, below: b.top >= a.bottom };
+  }), { count: 1, overlap: false, below: true });
+
+  // Sonoyo の列が外れたら、検索結果列の右外へ戻る
+  await page.evaluate(() => document.getElementById('sonoyo-col').remove());
+  await page.waitForFunction(() => document.querySelector('#center_col > #searchclock-root'), { polling: 50, timeout: 5000 });
+
+  // 右カラム (#rhs) が後から現れたら、そちらの先頭へ載せ替える
+  await page.evaluate(() => {
+    const rhs = document.createElement('div');
+    rhs.id = 'rhs';
+    document.getElementById('rcnt').appendChild(rhs);
+  });
+  await page.waitForFunction(() => document.querySelector('#rhs > #searchclock-root'), { polling: 50, timeout: 5000 });
+  assert.equal(await page.evaluate(() => document.querySelectorAll('#searchclock-root').length), 1);
+
+  // 右側に余白が無い幅では画面右下へ固定表示し、検索結果列にも1件目の上にも入らない
+  // 修飾クリックで開いた別タブの裏に回ったままだと resize が届かないため、先に前面へ戻す
+  await page.bringToFront();
+  await page.setViewport({ width: 900, height: 900 });
+  await page.waitForFunction(() => document.querySelector('body > #searchclock-root'), { polling: 50, timeout: 5000 });
+  assert.deepEqual(await page.evaluate(() => ({
+    count: document.querySelectorAll('#searchclock-root').length,
+    position: getComputedStyle(document.getElementById('searchclock-root')).position,
+    firstIsTop: document.getElementById('center_col').firstElementChild.id,
+    coversFirst: (() => {
+      const a = document.getElementById('searchclock-root').getBoundingClientRect();
+      const b = document.getElementById('first-result').getBoundingClientRect();
+      return a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+    })(),
+  })), { count: 1, position: 'fixed', firstIsTop: 'first-result', coversFirst: false });
 });

@@ -95,6 +95,61 @@ function findInjectionTarget() {
   );
 }
 
+// ─── サイド配置 ──────────────────────────────────────────
+// パネルは document_idle で遅れて現れるため、検索結果の上へ差し込むと結果が下へずれ、
+// 1件目をクリックしようとした瞬間にパネルを押してしまう。検索結果の列の外（サイド）へ置き、
+// 結果のレイアウトを一切動かさないことを最優先にする。
+// 差し込み先は Sonoyo の列 → Google の右カラム (#rhs) → 検索結果列の右側へ絶対配置 → 画面右下に固定、の順。
+const PANEL_WIDTH = 380;
+const SIDE_GAP = 28;
+const SIDE_MARGIN_RIGHT = 14;
+// これより狭い画面では右側に列を作る余白が無いため、固定表示に倒す
+const FLOAT_MIN_VIEWPORT = 1100;
+
+// 同じ作者の Sonoyo 拡張は #center_col の右外 (left: 100% + 28px, top: 0) か #rhs の先頭に
+// 自前の列 #sonoyo-col を作る。SearchClock の side 配置と完全に同じ座標になり重なるため、
+// その列があるときは列の先頭へ通常フローで載せ、縦に積んで共存させる。
+const SONOYO_COLUMN_ID = 'sonoyo-col';
+
+function findSlot() {
+  if (window.innerWidth < FLOAT_MIN_VIEWPORT) return { mode: 'float' };
+  const sonoyoCol = document.getElementById(SONOYO_COLUMN_ID);
+  if (sonoyoCol) return { mode: 'sonoyo', el: sonoyoCol };
+  const rhs = document.getElementById('rhs');
+  if (rhs && window.getComputedStyle(rhs).display !== 'none') return { mode: 'rhs', el: rhs };
+  const center = document.getElementById('center_col');
+  if (center) {
+    const box = center.getBoundingClientRect();
+    const css = window.getComputedStyle(center);
+    const room = Math.floor(document.documentElement.clientWidth - box.right - SIDE_GAP - SIDE_MARGIN_RIGHT);
+    // 絶対配置の基準にするため position が static でないこと、はみ出しを切られないため
+    // overflow-x が visible であることを確認する（満たさなければ固定表示へ）
+    if (box.width > 0 && room >= PANEL_WIDTH && css.position !== 'static' && css.overflowX === 'visible') {
+      return { mode: 'side', el: center };
+    }
+  }
+  return { mode: 'float' };
+}
+
+// host 要素へのインライン style は Shadow DOM 内の :host より優先されるため、配置はここで決める
+function placeRoot(root, slot) {
+  if (slot.mode === 'sonoyo' || slot.mode === 'rhs') {
+    root.style.cssText = `display:block;width:${PANEL_WIDTH}px;max-width:100%;margin:0 0 16px;`;
+    slot.el.prepend(root);
+  } else if (slot.mode === 'side') {
+    // Google の grid / flex に新しい要素を割り当てず、検索結果列を基準に右外へ絶対配置する
+    root.style.cssText = `display:block;position:absolute;left:calc(100% + ${SIDE_GAP}px);top:0;` +
+      `width:${PANEL_WIDTH}px;margin:0;z-index:2;`;
+    slot.el.appendChild(root);
+  } else {
+    // 狭い画面では検索結果の列と横方向に重なり得る。遅れて現れたパネルが1件目の上に
+    // 被らないよう、上端ではなく画面右下へ固定する（Sonoyo の浮遊表示は右上なので重ならない）。
+    root.style.cssText = `display:block;position:fixed;right:${SIDE_MARGIN_RIGHT}px;bottom:${SIDE_MARGIN_RIGHT}px;` +
+      `width:${PANEL_WIDTH}px;max-width:calc(100vw - 28px);margin:0;z-index:2147483000;`;
+    document.body.appendChild(root);
+  }
+}
+
 // document_idle 時点で注入先が無いのは「遅延レンダリング中」か「画像検索など注入先を持たない
 // 別レイアウトの /search ページ」。前者に備えて一定時間だけ出現を監視し、見つかり次第注入する。
 // 期限まで現れなければ後者と判断して console.info で記録して退出する
@@ -132,8 +187,8 @@ function waitForInjectionTarget() {
 }
 
 function initSearchClock() {
-  const centerCol = findInjectionTarget();
-  if (!centerCol) {
+  const injectionTarget = findInjectionTarget();
+  if (!injectionTarget) {
     waitForInjectionTarget();
     return;
   }
@@ -314,31 +369,58 @@ function initSearchClock() {
 
   // root を先に挿入してから監視を開始（observe を先に呼ぶと、Google ページの動的更新で
   // 「root がまだ body に入っていない」状態で cleanup が即発火してしまう）
-  centerCol.insertBefore(root, centerCol.firstChild);
+  const slot = findSlot();
+  placeRoot(root, slot);
+  const slotParent = root.parentNode;
 
-  // ルートが削除されたらクリーンアップ。
-  // centerCol の childList と、その親の childList を両方監視することで、
-  //   - root が centerCol から取り除かれるケース
-  //   - centerCol 自体が差し替えられる SPA 的遷移
-  // の両方を捕捉。subtree: true は Google ページの mutation 頻度が高すぎて重いので使わない。
-  // 親と子の両方を observe しているため同一フレームで 2 回 callback されうる。
-  // cleaned フラグで二重実行を防止（removeListener/disconnect 自体は冪等だが contains() の DOM 探索が無駄）。
+  // 破棄時の後始末。親と祖父母の両方を observe しているため同一フレームで 2 回 callback されうる。
+  // cleaned フラグで二重実行を防止する。
   let cleaned = false;
+  let resizeTimer = null;
+  const teardown = () => {
+    cleaned = true;
+    chrome.storage.onChanged.removeListener(storageListener);
+    document.removeEventListener('click', clickHandler, true);
+    window.removeEventListener('pageshow', pageshowHandler);
+    window.removeEventListener('resize', resizeHandler);
+    clearTimeout(resizeTimer);
+    observer.disconnect();
+  };
+  // 画面幅の変化や #rhs の後出しで最適な差し込み先が変わったら作り直す。
+  // 表示状態は URL と storage が正本なので、作り直しても失われる状態は無い。
+  const remountIfSlotChanged = () => {
+    if (findSlot().mode === slot.mode) return;
+    teardown();
+    root.remove();
+    initSearchClock();
+  };
+
+  // ルートの親と、その親の childList を監視することで、
+  //   - root が差し込み先から取り除かれるケース
+  //   - 差し込み先自体が差し替えられる SPA 的遷移
+  //   - 右カラム (#rhs) が後から挿入されるケース
+  // を捕捉。subtree: true は Google ページの mutation 頻度が高すぎて重いので使わない。
   const observer = new MutationObserver(() => {
     if (cleaned) return;
-    if (!document.body.contains(root)) {
-      cleaned = true;
-      chrome.storage.onChanged.removeListener(storageListener);
-      document.removeEventListener('click', clickHandler, true);
-      window.removeEventListener('pageshow', pageshowHandler);
-      observer.disconnect();
+    if (!root.isConnected) {
+      teardown();
       waitForInjectionTarget();
+      return;
     }
+    remountIfSlotChanged();
   });
-  observer.observe(centerCol, { childList: true });
-  if (centerCol.parentNode) {
-    observer.observe(centerCol.parentNode, { childList: true });
+  observer.observe(slotParent, { childList: true });
+  if (slotParent.parentNode) {
+    observer.observe(slotParent.parentNode, { childList: true });
   }
+
+  const resizeHandler = () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      if (!cleaned) remountIfSlotChanged();
+    }, 150);
+  };
+  window.addEventListener('resize', resizeHandler);
 }
 
 // UI 全体の状態を更新（qdr は URL から導出した実絞り込み、keepSetting は維持モード）
@@ -374,142 +456,84 @@ function updateUI(refs, qdr, keepSetting) {
   refs.modeChip.dataset.mode = mode;
 }
 
-// 区切り点（dot separator）を作る小さなヘルパ
-function buildDot() {
-  const dot = document.createElement('span');
-  dot.className = 'sc-dot';
-  dot.setAttribute('aria-hidden', 'true');
-  dot.textContent = '·';
-  return dot;
+// DOM 要素を 1 行で組み立てる小さなヘルパ。
+// buildPanel の「createElement → className → id → textContent → appendChild」の繰り返しを畳み、
+// 段の構成（どの要素がどの親に入るか）をコードの入れ子で読めるようにする。
+// innerHTML は使わず、文字列は textContent だけで入れる（将来的な XSS 混入を防止）。
+//   props: className / id / text / dataset / attrs（setAttribute で設定する属性）/
+//          それ以外のキー（type / name / value 等）はプロパティとしてそのまま代入
+function el(tag, props = {}, children = []) {
+  const node = document.createElement(tag);
+  const { className, id, text, dataset, attrs, ...rest } = props;
+  // type 等を先に代入し、旧実装と同じ属性順（type → id → aria-*）の DOM を保つ
+  Object.assign(node, rest);
+  if (className) node.className = className;
+  if (id) node.id = id;
+  if (dataset) Object.assign(node.dataset, dataset);
+  for (const [name, value] of Object.entries(attrs ?? {})) node.setAttribute(name, value);
+  if (text !== undefined) node.textContent = text;
+  for (const child of children) node.appendChild(child);
+  return node;
 }
 
-// パネルを DOM API で組み立て（innerHTML を避けて将来的な XSS 混入を防止）
+// 区切り点（dot separator）
+function buildDot() {
+  return el('span', { className: 'sc-dot', attrs: { 'aria-hidden': 'true' }, text: '·' });
+}
+
+// プリセット 1 個分（radio + chip）。value='' は「オフ」として別配色にする。
+function buildPresetChip({ shortLabel, en, value }) {
+  return el('label', { className: 'sc-preset', dataset: value ? undefined : { off: 'true' } }, [
+    el('input', { type: 'radio', name: 'qdr', value }),
+    el('span', { className: 'sc-chip' }, [
+      el('span', { className: 'sc-chip-jp', text: shortLabel }),
+      el('span', { className: 'sc-chip-en', text: en }),
+    ]),
+  ]);
+}
+
+// パネルを DOM API で組み立てる。サイドに置く縦長コンパクト構成:
+//   1 段目: mark · title …… モードチップ
+//   2 段目: No. · 状態 …… tbs
+//   3 段目: プリセット（4 列グリッド）
+//   4 段目: 「期間を維持」switch
+// id 付きの要素は initSearchClock の refs と updateUI が参照する。
 function buildPanel() {
-  const panel = document.createElement('div');
-  panel.className = 'sc-panel';
-  panel.id = 'sc-panel';
-
-  // ─── ヘッダー（1 行に圧縮：mark · title · No. · 状態 · tbs · keep pill） ─────
-  const header = document.createElement('div');
-  header.className = 'sc-header';
-
-  const mark = document.createElement('span');
-  mark.className = 'sc-mark';
-  mark.appendChild(buildLogoSvg(12));
-  header.appendChild(mark);
-
-  const title = document.createElement('span');
-  title.className = 'sc-title';
-  title.textContent = 'SearchClock';
-  header.appendChild(title);
-
-  header.appendChild(buildDot());
-
-  const issue = document.createElement('span');
-  issue.className = 'sc-issue';
-  const issueEn = document.createElement('span');
-  issueEn.className = 'sc-issue-en';
-  issueEn.textContent = 'No.';
-  const issueNo = document.createElement('span');
-  issueNo.className = 'sc-issue-no';
-  issueNo.id = 'sc-issue-no';
-  issueNo.textContent = '—';
-  issue.appendChild(issueEn);
-  issue.appendChild(issueNo);
-  header.appendChild(issue);
-
-  header.appendChild(buildDot());
-
-  const status = document.createElement('span');
-  status.className = 'sc-status';
-  status.id = 'sc-status';
-  status.textContent = '期間指定なし';
-  header.appendChild(status);
-
-  // tbs ラベル（右寄せ）
-  const tbsWrap = document.createElement('span');
-  tbsWrap.className = 'sc-tbs-wrap';
-  const tbsLabel = document.createElement('span');
-  tbsLabel.className = 'sc-tbs-label';
-  tbsLabel.textContent = 'tbs=';
-  const tbs = document.createElement('span');
-  tbs.className = 'sc-tbs';
-  tbs.id = 'sc-tbs';
-  tbs.textContent = '—';
-  tbsWrap.appendChild(tbsLabel);
-  tbsWrap.appendChild(tbs);
-  header.appendChild(tbsWrap);
-
-  // モードチップ（switch の左隣・現在のモードを常時可視化、once 誤認防止）
-  const modeChip = document.createElement('span');
-  modeChip.className = 'sc-mode-chip';
-  modeChip.id = 'sc-mode-chip';
-  modeChip.dataset.mode = 'once';
-  modeChip.textContent = '1回限り';
-  header.appendChild(modeChip);
-
-  // 「期間を維持」switch + 日本語ラベル
-  const keepWrap = document.createElement('label');
-  keepWrap.className = 'sc-keep';
-  keepWrap.id = 'sc-keep';
-
-  const keepLabel = document.createElement('span');
-  keepLabel.className = 'sc-keep-label';
-  keepLabel.textContent = '期間を維持';
-  keepWrap.appendChild(keepLabel);
-
-  const keepSwitch = document.createElement('span');
-  keepSwitch.className = 'sc-keep-switch';
-
-  const keepInput = document.createElement('input');
-  keepInput.type = 'checkbox';
-  keepInput.id = 'sc-keep-input';
-  keepInput.setAttribute('aria-label', '期間を維持');
-  keepSwitch.appendChild(keepInput);
-
-  const keepTrack = document.createElement('span');
-  keepTrack.className = 'sc-keep-track';
-  keepTrack.setAttribute('aria-hidden', 'true');
-  keepSwitch.appendChild(keepTrack);
-
-  keepWrap.appendChild(keepSwitch);
-  header.appendChild(keepWrap);
-
-  panel.appendChild(header);
-
-  // ─── プリセット行（1 行 11 列） ───────────────────────
-  const presetsWrap = document.createElement('div');
-  presetsWrap.className = 'sc-presets';
-  for (const { shortLabel, en, value } of PRESETS) {
-    const label = document.createElement('label');
-    label.className = 'sc-preset';
-    if (!value) label.dataset.off = 'true';
-
-    const input = document.createElement('input');
-    input.type = 'radio';
-    input.name = 'qdr';
-    input.value = value;
-    label.appendChild(input);
-
-    const chip = document.createElement('span');
-    chip.className = 'sc-chip';
-
-    const jp = document.createElement('span');
-    jp.className = 'sc-chip-jp';
-    jp.textContent = shortLabel;
-    chip.appendChild(jp);
-
-    const enEl = document.createElement('span');
-    enEl.className = 'sc-chip-en';
-    enEl.textContent = en;
-    chip.appendChild(enEl);
-
-    label.appendChild(chip);
-    presetsWrap.appendChild(label);
-  }
-  panel.appendChild(presetsWrap);
-
-  return panel;
+  return el('div', { className: 'sc-panel', id: 'sc-panel' }, [
+    // ─── ヘッダー ─────
+    el('div', { className: 'sc-header' }, [
+      el('span', { className: 'sc-mark' }, [buildLogoSvg(12)]),
+      el('span', { className: 'sc-title', text: 'SearchClock' }),
+      // モードチップ（右寄せ・現在のモードを常時可視化、once 誤認防止）
+      el('span', { className: 'sc-mode-chip', id: 'sc-mode-chip', dataset: { mode: 'once' }, text: '1回限り' }),
+    ]),
+    // ─── 状態行 ─────
+    el('div', { className: 'sc-status-row' }, [
+      el('span', { className: 'sc-issue' }, [
+        el('span', { className: 'sc-issue-en', text: 'No.' }),
+        el('span', { className: 'sc-issue-no', id: 'sc-issue-no', text: '—' }),
+      ]),
+      buildDot(),
+      el('span', { className: 'sc-status', id: 'sc-status', text: '期間指定なし' }),
+      // tbs ラベル（右寄せ）
+      el('span', { className: 'sc-tbs-wrap' }, [
+        el('span', { className: 'sc-tbs-label', text: 'tbs=' }),
+        el('span', { className: 'sc-tbs', id: 'sc-tbs', text: '—' }),
+      ]),
+    ]),
+    // ─── プリセット（4 列グリッド） ─────
+    el('div', { className: 'sc-presets' }, PRESETS.map(buildPresetChip)),
+    // ─── フッター：「期間を維持」switch + 日本語ラベル ─────
+    el('div', { className: 'sc-footer' }, [
+      el('label', { className: 'sc-keep', id: 'sc-keep' }, [
+        el('span', { className: 'sc-keep-label', text: '期間を維持' }),
+        el('span', { className: 'sc-keep-switch' }, [
+          el('input', { type: 'checkbox', id: 'sc-keep-input', attrs: { 'aria-label': '期間を維持' } }),
+          el('span', { className: 'sc-keep-track', attrs: { 'aria-hidden': 'true' } }),
+        ]),
+      ]),
+    ]),
+  ]);
 }
 
 function buildLogoSvg(size) {
@@ -574,13 +598,13 @@ const THEME_LIGHT = `
     }
   `;
 
-// 注入パネル: 縦の高さを最小化（ヘッダ + chip 行の 2 段、合計 ~62px）
+// 注入パネル: サイドに置く縦長コンパクト構成（幅 PANEL_WIDTH、配置は placeRoot のインライン style）
 const STYLES_COMMON = `
     :host {
       all: initial;
       display: block;
-      width: 100%;
-      margin: 0 0 10px;
+      width: ${PANEL_WIDTH}px;
+      margin: 0;
       font-family: "Hiragino Sans", "Noto Sans JP", "Segoe UI", system-ui, sans-serif;
       font-size: 12px;
       line-height: 1.4;
@@ -615,14 +639,25 @@ const STYLES_COMMON = `
       box-shadow: inset 2px 0 0 var(--accent);
     }
 
-    /* ── Header (1行に集約、~28px) ─────────── */
+    /* ── Header（mark · title …… モードチップ） ─────────── */
     .sc-header {
       display: flex;
-      align-items: baseline;
+      align-items: center;
       gap: 6px;
-      padding: 6px 12px 5px;
-      border-bottom: 1px dashed var(--rule);
+      padding: 7px 10px 4px;
       min-height: 26px;
+      flex-wrap: nowrap;
+      overflow: hidden;
+    }
+    .sc-header .sc-mode-chip { margin-left: auto; }
+
+    /* ── 状態行（No. · 状態 …… tbs） ─────────── */
+    .sc-status-row {
+      display: flex;
+      align-items: baseline;
+      gap: 5px;
+      padding: 0 10px 5px;
+      border-bottom: 1px dashed var(--rule);
       flex-wrap: nowrap;
       overflow: hidden;
     }
@@ -718,6 +753,13 @@ const STYLES_COMMON = `
       border-color: var(--accent);
     }
 
+    /* ── Footer（期間を維持） ─────────────── */
+    .sc-footer {
+      display: flex;
+      justify-content: flex-end;
+      padding: 0 10px 8px;
+    }
+
     /* ── Switch（期間を維持） ─────────────── */
     .sc-keep {
       display: inline-flex;
@@ -801,16 +843,12 @@ const STYLES_COMMON = `
       outline-offset: 2px;
     }
 
-    /* ── Presets (1 行 × N 列、N = PRESETS.length) ──────────── */
+    /* ── Presets（幅 380px で 4 列 × 3 段に収める） ──────────── */
     .sc-presets {
       display: grid;
-      grid-template-columns: repeat(${PRESETS.length}, minmax(0, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 4px;
-      padding: 5px 10px 7px;
-    }
-    /* 狭幅では半数列にフォールバック */
-    @media (max-width: 640px) {
-      .sc-presets { grid-template-columns: repeat(${Math.ceil(PRESETS.length / 2)}, minmax(0, 1fr)); }
+      padding: 7px 10px 7px;
     }
 
     .sc-preset {
