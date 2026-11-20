@@ -20,10 +20,10 @@ SearchClock は、Google Web 検索の `tbs` クエリパラメータへ期間�
 | `scripts/` | Google ドメイン定義の同期検査、SVGからの配布用アイコン生成、Chrome 起動用プロファイルのシード（`chrome-profile-seed.mjs`）、CWS 公開（`Publish-Cws.ps1` / `CwsPublisher.cs`）とその HTTP fixture テスト（`Test-PublishCws.ps1`）を持つ。 |
 | `webstore/` | Chrome Web Store 掲載文と掲載画像の設定（`store-assets.json`・固定ページ `fixtures/`）、画像生成キット（`vitrina/`、正本は Kagayoi.Support の逐語コピー）を保持し、実拡張を撮影して9言語の掲載画像を生成する。製品ランタイムには含めない。 |
 | `zip.ps1` / `zip.sh` | `manifest.json`、`_locales/`、ランタイム用の `src/`、`icons/` だけを配布ZIPへ格納し、テストは除外する。 |
-| `.github/workflows/publish.yml` | `release/**` の push を契機に検証・パッケージングし、Chrome Web Storeへ下書きとしてアップロードする（審査へは申請しない）。Actionsはcommit SHAで固定する。 |
+| `.github/workflows/publish.yml` | 版タグ `v<x.y.z>` の push を契機に検証・パッケージングし、Chrome Web Storeへ下書きとしてアップロードする（審査へは申請しない）。Actionsはcommit SHAで固定する。 |
 | `.github/workflows/cws-submit.yml` | 手動実行。Dashboardで掲載画像を整えた後、同じcommitのアップロード成功を確認して審査へ申請する。 |
 
-作業コマンド、パッケージングと検証手順は [AGENTS.md](AGENTS.md) を正本とする。アップロードworkflowではテスト・ドメイン同期検査・アイコン生成を通してからZIPを作り、ストア画像は生成しない。`release/<manifest.json の version>` とブランチ名が一致しない場合は停止する。アップロードと申請を分ける条件は AGENTS.md の「CWS のアップロードと申請の分離」を正本とする。
+作業コマンド、パッケージングと検証手順は [AGENTS.md](AGENTS.md) を正本とする。アップロードworkflowではテスト・ドメイン同期検査・アイコン生成を通してからZIPを作り、ストア画像は生成しない。タグ `v<manifest.json の version>` とタグ名が一致しない場合は停止する。アップロードと申請を分ける条件は AGENTS.md の「CWS のアップロードと申請の分離」を正本とする。
 
 ## データフロー
 
