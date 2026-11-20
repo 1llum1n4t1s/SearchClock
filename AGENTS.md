@@ -100,4 +100,4 @@ CWS公開workflowはrepository固定のconcurrency groupで直列化する。同
 
 依存の固定復元は `bun run deps` を使う。lock欠落・破損を拒否し、`[run] bun=true` 経由で依存のpostinstallまでBunで実行する。Node.jsがあるPCでも通常の `bun install` を直接使う経路へ戻さない。
 
-依存更新は通常のDependabot PRで受け、Dependency validationで検証する。ローカルの `bun audit` でlock全体を監査できる。依存の自動修正・自動マージは行わない。
+依存更新は通常のDependabot PRで受け、Dependency validationで検証する。ローカルの `bun audit` でlock全体を監査できる。Dependabot PR の自動マージは `.github/workflows/dependabot-auto-merge.yml` が Dependency validation の成功後に行う。それ以外の依存の自動修正は行わない。
