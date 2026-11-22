@@ -130,7 +130,7 @@ Google検索の期間指定パラメータを自動的に付与し、検索結�
   Google 検索（www.google.com など 11 ドメイン）の検索 URL に期間パラメータを付けるリダイレクトと、検索結果ページへの期間選択パネルの表示に使用します。Google 検索ページ以外のサイトには影響しません。
 
 ■ プライバシーポリシー URL
-https://searchclock.kagayoi.com/privacy
+https://privacy.kagayoi.com/searchclock
 
 ■ リモートコードを使用していますか？
 いいえ
